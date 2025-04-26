@@ -9,7 +9,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: "https://lushkart-server.onrender.com",
         changeOrigin: true,
       },
     },
