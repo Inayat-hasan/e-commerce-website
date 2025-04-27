@@ -16,7 +16,9 @@ import {
 
 const CategorisedProducts = () => {
   const { category } = useParams();
-  const serverUrl = process.env.SERVER_URL;
+  const dispatch = useAppDispatch();
+  const isLoggedIn = useAppSelector(selectIsLoggedIn);
+  const serverUrl = import.meta.env.SERVER_URL;
   const navigate = useNavigate();
   const location = useLocation();
 

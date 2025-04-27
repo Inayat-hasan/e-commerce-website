@@ -38,7 +38,7 @@ const ProductDetail = () => {
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const dispatch = useAppDispatch();
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
-  const serverUrl = process.env.SERVER_URL;
+  const serverUrl = import.meta.env.SERVER_URL;
 
   useEffect(() => {
     const getProduct = async () => {

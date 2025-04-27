@@ -64,11 +64,13 @@ const ProductsList = ({ products, heading, onProductDelete }) => {
   const handleDeleteProduct = async (productId) => {
     try {
       setIsDeleting(true);
-      const req = await axios.delete(
-        `${process.env.SERVER_URL}/api/product/admin/delete-product/${productId}`,
-        { withCredentials: "true" }
+      const response = await axios.delete(
+        `${
+          import.meta.env.SERVER_URL
+        }/api/product/admin/delete-product/${productId}`,
+        { withCredentials: true }
       );
-      if (req.status === 200) {
+      if (response.status === 200) {
         onProductDelete(productId); // Call parent handler to update state
         setDeleteDropdown(false);
         setProductToDelete(null);

@@ -18,7 +18,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 const OrderDetail = () => {
   const { orderId } = useParams();
-  const serverUrl = process.env.SERVER_URL;
+  const serverUrl = import.meta.env.SERVER_URL;
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

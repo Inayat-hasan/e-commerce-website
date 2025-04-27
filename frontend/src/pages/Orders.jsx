@@ -100,12 +100,12 @@ const Orders = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const serverUrl = process.env.SERVER_URL;
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterTimeRange, setFilterTimeRange] = useState("all");
   const navigate = useNavigate();
   const user = useAppSelector(selectUser); // user : {fullName : '',phoneNumber: "" , email: "", _id : ""}
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
+  const serverUrl = import.meta.env.SERVER_URL;
 
   // Get filtered orders based on search term and filters
   const filteredOrders = orders.filter((order) => {

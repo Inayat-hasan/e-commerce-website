@@ -17,7 +17,7 @@ const MultipleProducts = () => {
   const { random } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const serverUrl = process.env.SERVER_URL;
+  const serverUrl = import.meta.env.SERVER_URL;
 
   // Parse query parameters
   const queryParams = new URLSearchParams(location.search);
@@ -260,8 +260,8 @@ const MultipleProducts = () => {
             {/* Products grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {products.map((product) => (
-                <div 
-                  key={product._id} 
+                <div
+                  key={product._id}
                   onClick={() => navigate(`/product/${product._id}`)}
                   className="cursor-pointer"
                 >

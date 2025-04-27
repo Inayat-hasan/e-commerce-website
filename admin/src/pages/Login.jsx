@@ -19,7 +19,7 @@ const Login = () => {
       setLoading(true);
 
       const response = await axios.post(
-        `${process.env.SERVER_URL}/api/admin/login`,
+        `${import.meta.env.SERVER_URL}/api/admin/login`,
         {
           email,
           password,

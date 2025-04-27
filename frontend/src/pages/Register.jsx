@@ -17,8 +17,9 @@ const Register = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1);
   const navigate = useNavigate();
-  const serverUrl = process.env.SERVER_URL;
+  const serverUrl = import.meta.env.SERVER_URL;
 
   const submitRegisterHandler = async (e) => {
     e.preventDefault();

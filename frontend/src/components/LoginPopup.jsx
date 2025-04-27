@@ -12,6 +12,7 @@ const LoginPopup = ({ isOpen, onClose, isMobile }) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth <= 480);
+  const serverUrl = import.meta.env.SERVER_URL;
 
   // Reset form when popup closes
   useEffect(() => {
@@ -48,7 +49,7 @@ const LoginPopup = ({ isOpen, onClose, isMobile }) => {
     setLoading(true);
     try {
       const response = await axios.post(
-        `${process.env.SERVER_URL}/api/buyer/login`,
+        `${serverUrl}/api/buyer/login`,
         { email, password },
         { withCredentials: true }
       );

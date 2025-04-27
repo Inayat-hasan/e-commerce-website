@@ -2,7 +2,7 @@ import axios from "axios";
 
 const checkAdmin = async () => {
   try {
-    const serverUrl = process.env.SERVER_URL;
+    const serverUrl = import.meta.env.SERVER_URL;
     const req = await axios.get(`${serverUrl}/api/user/check-admin`);
     if (req.data.data.admin) {
       const admin = req.data.data.admin;

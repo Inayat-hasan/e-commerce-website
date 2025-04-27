@@ -2,7 +2,7 @@ import axios from "axios";
 
 const fetchCartCount = async () => {
   try {
-    const serverUrl = process.env.SERVER_URL;
+    const serverUrl = import.meta.env.SERVER_URL;
     const response = await axios.get(`${serverUrl}/api/cart/get-cart-count`, {
       withCredentials: true,
     });

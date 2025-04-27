@@ -21,7 +21,9 @@ const AllProducts = () => {
   useEffect(() => {
     const getProducts = async () => {
       try {
-        const req = await axios.get(`${process.env.SERVER_URL}/api/product/admin/get-all-products`);
+        const req = await axios.get(
+          `${import.meta.env.SERVER_URL}/api/product/admin/get-all-products`
+        );
         if (req.status === 200) {
           setAllProducts(req.data.data.products);
         }

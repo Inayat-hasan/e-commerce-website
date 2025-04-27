@@ -83,7 +83,7 @@ const exampleCart = {
 
 const Cart = () => {
   const navigate = useNavigate();
-  const serverUrl = process.env.SERVER_URL;
+  const serverUrl = import.meta.env.SERVER_URL;
   const [cart, setCart] = useState({
     products: [],
     totalActualPrice: 0,
@@ -98,7 +98,6 @@ const Cart = () => {
   const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(null);
   const [isRemovingItem, setIsRemovingItem] = useState(null);
   const dispatch = useDispatch();
-  const serverUrl = process.env.SERVER_URL;
 
   useEffect(() => {
     fetchCart();

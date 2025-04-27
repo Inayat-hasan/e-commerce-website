@@ -12,9 +12,9 @@ import { setUser } from "../redux/slices/authentication/authSlice";
 
 const Login = () => {
   const [email, setEmail] = useState("");
-  const serverUrl = process.env.SERVER_URL;
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const serverUrl = import.meta.env.SERVER_URL;
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
