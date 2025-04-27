@@ -38,13 +38,14 @@ const ProductDetail = () => {
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const dispatch = useAppDispatch();
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
+  const serverUrl = process.env.SERVER_URL;
 
   useEffect(() => {
     const getProduct = async () => {
       try {
         setLoading(true);
         const res = await axios.get(
-          `/api/product/buyer/get-product/${productId}`
+          `${serverUrl}/api/product/buyer/get-product/${productId}`
         );
         setProduct(res.data.data.product);
       } catch (error) {
@@ -61,7 +62,7 @@ const ProductDetail = () => {
     const isProductInCart = async () => {
       try {
         const res = await axios.post(
-          `/api/cart/is-product-in-cart`,
+          `${serverUrl}/api/cart/is-product-in-cart`,
           { productId },
           { withCredentials: true }
         );
@@ -74,7 +75,7 @@ const ProductDetail = () => {
     const isProductInWishlist = async () => {
       try {
         const res = await axios.post(
-          `/api/wishlist/is-product-in-wishlist`,
+          `${serverUrl}/api/wishlist/is-product-in-wishlist`,
           { productId },
           { withCredentials: true }
         );
@@ -99,7 +100,7 @@ const ProductDetail = () => {
       if (isProductInCart) {
         try {
           const res = await axios.post(
-            `/api/cart/remove-product`,
+            `${serverUrl}/api/cart/remove-product`,
             { productId },
             { withCredentials: true }
           );
@@ -122,7 +123,7 @@ const ProductDetail = () => {
       } else {
         try {
           const res = await axios.post(
-            `/api/cart/add-product`,
+            `${serverUrl}/api/cart/add-product`,
             { productId, quantity },
             { withCredentials: true }
           );
@@ -157,7 +158,7 @@ const ProductDetail = () => {
       if (isWishlisted) {
         try {
           const res = await axios.post(
-            `/api/wishlist/remove-product`,
+            `${serverUrl}/api/wishlist/remove-product`,
             { productId },
             { withCredentials: true }
           );
@@ -180,7 +181,7 @@ const ProductDetail = () => {
       } else {
         try {
           const res = await axios.post(
-            `/api/wishlist/add-product`,
+            `${serverUrl}/api/wishlist/add-product`,
             { productId },
             { withCredentials: true }
           );

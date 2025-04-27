@@ -17,6 +17,7 @@ const MultipleProducts = () => {
   const { random } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const serverUrl = process.env.SERVER_URL;
 
   // Parse query parameters
   const queryParams = new URLSearchParams(location.search);
@@ -53,13 +54,13 @@ const MultipleProducts = () => {
   const getApiEndpoint = () => {
     switch (random) {
       case "featured":
-        return "/api/product/buyer/get-featured-products";
+        return `${serverUrl}/api/product/buyer/get-featured-products`;
       case "best-selling":
-        return "/api/product/buyer/get-best-selling-products";
+        return `${serverUrl}/api/product/buyer/get-best-selling-products`;
       case "new-arrivals":
-        return "/api/product/buyer/get-latest-products";
+        return `${serverUrl}/api/product/buyer/get-latest-products`;
       default:
-        return "/api/product/buyer/all";
+        return `${serverUrl}/api/product/buyer/all`;
     }
   };
 

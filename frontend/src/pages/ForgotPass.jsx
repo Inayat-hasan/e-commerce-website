@@ -5,11 +5,12 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useState } from "react";
-import {  useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const ForgotPass = ({ url }) => {
+const ForgotPass = () => {
   const [email, setEmail] = useState("");
+  const serverUrl = process.env.SERVER_URL;
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -18,7 +19,7 @@ const ForgotPass = ({ url }) => {
     try {
       setLoading(true);
       const response = await axios.post(
-        `${url}/api/user/forgot-password`,
+        `${serverUrl}/api/user/forgot-password`,
         { email },
         {
           withCredentials: true,
@@ -30,7 +31,7 @@ const ForgotPass = ({ url }) => {
       if (response.status === 200) {
         setEmail("");
         setLoading(false);
-        navigate('/login/forgot-password/success');
+        navigate("/login/forgot-password/success");
       }
     } catch (error) {
       setLoading(false);

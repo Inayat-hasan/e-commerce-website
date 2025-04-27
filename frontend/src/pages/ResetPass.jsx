@@ -12,6 +12,7 @@ const ResetPass = ({ url }) => {
   const [confirmPass, setConfirmPass] = useState("");
   const navigate = useNavigate();
   const { id, token } = useParams();
+  const serverUrl = process.env.SERVER_URL;
 
   const submitResetPassword = async (e) => {
     e.preventDefault();
@@ -21,7 +22,7 @@ const ResetPass = ({ url }) => {
         return;
       }
       const response = await axios.post(
-        `${url}/api/user/reset-password/${id}/${token}`,
+        `${serverUrl}/api/user/reset-password/${id}/${token}`,
         {
           password,
           confirmPassword: confirmPass,

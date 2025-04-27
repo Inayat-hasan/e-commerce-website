@@ -14,6 +14,7 @@ const Product = ({ product, handleProductClick }) => {
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const productId = product._id;
+  const serverUrl = process.env.SERVER_URL;
 
   // Calculate discount percentage
   const discountPercentage = Math.round(
@@ -37,7 +38,7 @@ const Product = ({ product, handleProductClick }) => {
     try {
       const endpoint = isWishlisted ? "remove-product" : "add-product";
       const res = await axios.post(
-        `/api/wishlist/${endpoint}`,
+        `${serverUrl}/api/wishlist/${endpoint}`,
         { productId },
         { withCredentials: true }
       );
@@ -65,7 +66,7 @@ const Product = ({ product, handleProductClick }) => {
       const checkWishlistStatus = async () => {
         try {
           const res = await axios.post(
-            `/api/wishlist/is-product-in-wishlist`,
+            `${serverUrl}/api/wishlist/is-product-in-wishlist`,
             { productId },
             { withCredentials: true }
           );

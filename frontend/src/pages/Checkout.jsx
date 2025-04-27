@@ -23,6 +23,7 @@ import {
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const serverUrl = process.env.SERVER_URL;
   const location = useLocation();
   const user = useAppSelector(selectUser); // ex: user = { _id: "123", fullName: "John Doe",phoneNumber: "+91 123456789",email: "FtHsQ@example.com" }
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
@@ -84,7 +85,7 @@ const Checkout = () => {
   const fetchAndFormatDirectBuyProduct = async (directBuyInfo) => {
     try {
       const result = await axios.get(
-        `/api/product/buyer/get-product/${directBuyInfo.productId}`,
+        `${serverUrl}/api/product/buyer/get-product/${directBuyInfo.productId}`,
         { withCredentials: true }
       );
 
@@ -183,7 +184,7 @@ const Checkout = () => {
       const cashfree = cf;
 
       const orderResponse = await axios.post(
-        `/api/order/create-order`,
+        `${serverUrl}/api/order/create-order`,
         { cart, selectedAddress },
         { withCredentials: true }
       );
@@ -204,7 +205,7 @@ const Checkout = () => {
         toast.error("Payment failed. Please try again.");
       } else if (paymentResponse.paymentDetails) {
         const result2 = await axios.post(
-          `/api/order/verify-order`,
+          `${serverUrl}/api/order/verify-order`,
           {
             orderId,
             orders,
@@ -348,7 +349,7 @@ const Checkout = () => {
   };
 
   const fetchAddresses = async () => {
-    const result = await axios.get("/api/buyer/get-addresses", {
+    const result = await axios.get(`${serverUrl}/api/buyer/get-addresses`, {
       withCredentials: true,
     });
     if (result.data.data.addresses) {
@@ -370,7 +371,7 @@ const Checkout = () => {
     const { _id, ...addressWithoutId } = newAddress;
 
     const result = await axios.post(
-      `/api/buyer/address/add-address`,
+      `${serverUrl}/api/buyer/address/add-address`,
       { address: addressWithoutId },
       {
         withCredentials: true,
@@ -391,7 +392,7 @@ const Checkout = () => {
   const editAddress = async ({ address }) => {
     try {
       const result = await axios.post(
-        `/api/buyer/address/edit-address`,
+        `${serverUrl}/api/buyer/address/edit-address`,
         { address },
         { withCredentials: true }
       );
@@ -418,7 +419,7 @@ const Checkout = () => {
   };
 
   const deleteAddress = async (address) => {
-    const result = await axios.delete(`/api/buyer/address/delete-address`, {
+    const result = await axios.delete(`${serverUrl}/api/buyer/address/delete-address`, {
       data: { addressId: address._id },
       withCredentials: true,
     });
@@ -441,7 +442,7 @@ const Checkout = () => {
 
   const fetchCart = async () => {
     try {
-      const result = await axios.get("/api/cart/get-cart", {
+      const result = await axios.get(`${serverUrl}/api/cart/get-cart`, {
         withCredentials: true,
       });
       if (result.data.data.cart.products.length > 0) {

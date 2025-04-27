@@ -25,6 +25,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 const Home = () => {
   const navigate = useNavigate();
+  const serverUrl = process.env.SERVER_URL;
   const [loading, setLoading] = useState(false);
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
   const [showPopup, setShowPopup] = useState(false);
@@ -205,22 +206,28 @@ const Home = () => {
   }, [dispatch]);
 
   const fetchNewArrivals = async () => {
-    const req = await axios.get("/api/product/buyer/get-latest-products", {
-      params: { limit: 12, page: 1, sort: "latest" },
-    });
+    const req = await axios.get(
+      `${serverUrl}/api/product/buyer/get-latest-products`,
+      {
+        params: { limit: 12, page: 1, sort: "latest" },
+      }
+    );
     setNewArrivals(req.data.data.products);
   };
 
   const fetchFeaturedProducts = async () => {
-    const req = await axios.get("/api/product/buyer/get-featured-products", {
-      params: { limit: 12, page: 1, sort: "latest" },
-    });
+    const req = await axios.get(
+      `${serverUrl}/api/product/buyer/get-featured-products`,
+      {
+        params: { limit: 12, page: 1, sort: "latest" },
+      }
+    );
     setFeaturedProducts(req.data.data.products);
   };
 
   const fetchBestSellingProducts = async () => {
     const req = await axios.get(
-      "/api/product/buyer/get-best-selling-products",
+      `${serverUrl}/api/product/buyer/get-best-selling-products`,
       {
         params: { limit: 12, page: 1, sort: "latest" },
       }

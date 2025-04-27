@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 
-const ResetPass = ({ url }) => {
+const ResetPass = () => {
   const [password, setPassword] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
   const navigate = useNavigate();
   const { id, token } = useParams();
+  const serverUrl = process.env.SERVER_URL;
 
   const submitResetPassword = async (e) => {
     e.preventDefault();
@@ -16,7 +17,7 @@ const ResetPass = ({ url }) => {
         return;
       }
       const response = await axios.post(
-        `${url}/api/admin/reset-password/${id}/${token}`,
+        `${serverUrl}/api/admin/reset-password/${id}/${token}`,
         {
           password,
           confirmPassword: confirmPass,

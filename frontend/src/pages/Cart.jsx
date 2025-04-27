@@ -83,6 +83,7 @@ const exampleCart = {
 
 const Cart = () => {
   const navigate = useNavigate();
+  const serverUrl = process.env.SERVER_URL;
   const [cart, setCart] = useState({
     products: [],
     totalActualPrice: 0,

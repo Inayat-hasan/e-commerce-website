@@ -16,6 +16,7 @@ import {
 
 const CategorisedProducts = () => {
   const { category } = useParams();
+  const serverUrl = process.env.SERVER_URL;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -59,7 +60,7 @@ const CategorisedProducts = () => {
 
       // Make API call with params
       const response = await axios.get(
-        `/api/product/buyer/category/${category}`,
+        `${serverUrl}/api/product/buyer/category/${category}`,
         { params },
         { withCredentials: true }
       );
@@ -91,7 +92,7 @@ const CategorisedProducts = () => {
   const fetchBrands = async () => {
     try {
       const response = await axios.get(
-        `/api/product/buyer/products/brands/${category}`,
+        `${serverUrl}/api/product/buyer/products/brands/${category}`,
         { withCredentials: true }
       );
       if (response.data.data && response.data.data.brands) {

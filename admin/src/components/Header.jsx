@@ -36,9 +36,12 @@ const Header = () => {
 
   const getAdminDetails = async () => {
     try {
-      const req = await axios.get("/api/admin/profile", {
-        withCredentials: true,
-      });
+      const req = await axios.get(
+        `${process.env.SERVER_URL}/api/admin/profile`,
+        {
+          withCredentials: true,
+        }
+      );
       if (req.status === 200) {
         console.log(req.data);
       } else {

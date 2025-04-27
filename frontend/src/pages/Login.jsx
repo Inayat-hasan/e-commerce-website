@@ -12,6 +12,7 @@ import { setUser } from "../redux/slices/authentication/authSlice";
 
 const Login = () => {
   const [email, setEmail] = useState("");
+  const serverUrl = process.env.SERVER_URL;
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const Login = () => {
       setLoading(true);
 
       const response = await axios.post(
-        `/api/buyer/login`,
+        `${serverUrl}/api/buyer/login`,
         {
           email,
           password,

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const ForgotPass = ({ url }) => {
+const ForgotPass = () => {
   const [email, setEmail] = useState("");
   const navigate = useNavigate();
 
@@ -10,7 +10,7 @@ const ForgotPass = ({ url }) => {
     e.preventDefault();
     try {
       const response = await axios.post(
-        `${url}/api/admin/forgot-password`,
+        `${process.env.SERVER_URL}/api/admin/forgot-password`,
         { email },
         {
           withCredentials: true,

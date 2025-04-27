@@ -2,7 +2,8 @@ import axios from "axios";
 
 const checkBuyer = async () => {
   try {
-    const req = await axios.get("/api/buyer/check-buyer");
+    const serverUrl = process.env.SERVER_URL;
+    const req = await axios.get(`${serverUrl}/api/buyer/check-buyer`);
     if (req.data.data.user) {
       const buyer = req.data.data.user;
       return { buyer };

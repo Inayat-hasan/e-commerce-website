@@ -15,6 +15,7 @@ import { selectIsLoggedIn } from "../redux/reducers/authentication/authSelector"
 const ProductEdit = () => {
   const { isMenuOpen } = useMenu();
   const isUserLoggedIn = useAppSelector(selectIsLoggedIn);
+  const serverUrl = process.env.SERVER_URL;
   const isSideBarOpened = useAppSelector(selectIsOpen);
   const [productName, setProductName] = useState(""); // 1
   const [description, setDescription] = useState(""); // 2
@@ -63,7 +64,7 @@ const ProductEdit = () => {
     const fetchProduct = async () => {
       try {
         const req = await axios.get(
-          `/api/product/admin/get-product/${productId}`
+          `${serverUrl}/api/product/admin/get-product/${productId}`
         );
         if (req.status === 200) {
           const product = req.data.data.product;
@@ -199,7 +200,7 @@ const ProductEdit = () => {
 
     try {
       const response = await axios.post(
-        `/api/product/admin/update-product/${productId}`,
+        `${serverUrl}/api/product/admin/update-product/${productId}`,
         {
           productName,
           description,

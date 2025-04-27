@@ -18,13 +18,14 @@ const Register = () => {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const serverUrl = process.env.SERVER_URL;
 
   const submitRegisterHandler = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
       const response = await axios.post(
-        `/api/buyer/register`,
+        `${serverUrl}/api/buyer/register`,
         {
           email,
           password,
@@ -58,7 +59,7 @@ const Register = () => {
     try {
       setLoading(true);
       const response = await axios.post(
-        `/api/buyer/verify-otp`,
+        `${serverUrl}/api/buyer/verify-otp`,
         {
           email,
           otp,

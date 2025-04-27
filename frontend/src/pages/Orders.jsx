@@ -100,6 +100,7 @@ const Orders = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const serverUrl = process.env.SERVER_URL;
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterTimeRange, setFilterTimeRange] = useState("all");
   const navigate = useNavigate();
@@ -141,7 +142,7 @@ const Orders = () => {
 
       setLoading(true);
       try {
-        const response = await axios.get("/api/orders/get-orders", {
+        const response = await axios.get(`${serverUrl}/api/orders/get-orders`, {
           withCredentials: true,
         });
         if (response.data.data.orders) {

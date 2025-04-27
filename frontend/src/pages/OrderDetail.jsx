@@ -18,6 +18,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 const OrderDetail = () => {
   const { orderId } = useParams();
+  const serverUrl = process.env.SERVER_URL;
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,7 +27,7 @@ const OrderDetail = () => {
   useEffect(() => {
     const fetchOrderDetails = async () => {
       try {
-        const response = await axios.get(`/api/orders/${orderId}`, {
+        const response = await axios.get(`${serverUrl}/api/orders/${orderId}`, {
           withCredentials: true,
         });
         if (response.data.data.order) {

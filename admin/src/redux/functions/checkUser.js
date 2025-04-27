@@ -2,7 +2,9 @@ import axios from "axios";
 
 const checkUser = async () => {
   try {
-    const req = await axios.get("/api/user/check-user");
+    const req = await axios.get(
+      `${process.env.SERVER_URL}/api/user/check-user`
+    );
     if (req.data.data.user) {
       const user = req.data.data.user;
       return { user };

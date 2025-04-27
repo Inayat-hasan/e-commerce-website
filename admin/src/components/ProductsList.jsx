@@ -65,7 +65,7 @@ const ProductsList = ({ products, heading, onProductDelete }) => {
     try {
       setIsDeleting(true);
       const req = await axios.delete(
-        `/api/product/admin/delete-product/${productId}`,
+        `${process.env.SERVER_URL}/api/product/admin/delete-product/${productId}`,
         { withCredentials: "true" }
       );
       if (req.status === 200) {

@@ -11,6 +11,7 @@ import {
 
 const Register = () => {
   const [name, setName] = useState("");
+  const serverUrl = process.env.SERVER_URL;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
@@ -24,7 +25,7 @@ const Register = () => {
     try {
       setLoading(true);
       const response = await axios.post(
-        "http://localhost:5000/api/admin/register",
+        `${serverUrl}/api/admin/register`,
         {
           email,
           password,
@@ -54,7 +55,7 @@ const Register = () => {
     try {
       setLoading(true);
       const response = await axios.post(
-        "http://localhost:5000/api/admin/verify-otp",
+        `${serverUrl}/api/admin/verify-otp`,
         {
           email,
           otp,

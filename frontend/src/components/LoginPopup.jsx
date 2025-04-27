@@ -48,7 +48,7 @@ const LoginPopup = ({ isOpen, onClose, isMobile }) => {
     setLoading(true);
     try {
       const response = await axios.post(
-        "/api/buyer/login",
+        `${process.env.SERVER_URL}/api/buyer/login`,
         { email, password },
         { withCredentials: true }
       );
