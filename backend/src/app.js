@@ -19,8 +19,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",
-      "https://mqgr3d0z-3000.inc1.devtunnels.ms",
+      "https://lushkart.onrender.com",
+      "https://lushkart-admin.onrender.com",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
