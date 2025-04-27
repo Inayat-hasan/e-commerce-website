@@ -97,6 +97,7 @@ const Cart = () => {
   const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(null);
   const [isRemovingItem, setIsRemovingItem] = useState(null);
   const dispatch = useDispatch();
+  const serverUrl = process.env.SERVER_URL;
 
   useEffect(() => {
     fetchCart();
@@ -105,7 +106,7 @@ const Cart = () => {
   const fetchCart = async () => {
     setIsCartLoading(true);
     try {
-      const res = await axios.get("/api/cart/get-cart", {
+      const res = await axios.get(`${serverUrl}/api/cart/get-cart`, {
         withCredentials: true,
       });
       console.log("res : ", res);
@@ -148,7 +149,7 @@ const Cart = () => {
 
     try {
       const res = await axios.post(
-        "/api/cart/update-quantity",
+        `${serverUrl}/api/cart/update-quantity`,
         { productId, quantity: newQuantity },
         { withCredentials: true }
       );
@@ -173,7 +174,7 @@ const Cart = () => {
 
     try {
       const res = await axios.post(
-        "/api/cart/remove-product",
+        `${serverUrl}/api/cart/remove-product`,
         { productId },
         { withCredentials: true }
       );
