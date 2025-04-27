@@ -25,7 +25,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const [addressFormVisible, setAddressFormVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
   const location = useLocation();
   const user = useAppSelector(selectUser); // ex: user = { _id: "123", fullName: "John Doe",phoneNumber: "+91 123456789",email: "FtHsQ@example.com" }
   const isLoggedIn = useAppSelector(selectIsLoggedIn);

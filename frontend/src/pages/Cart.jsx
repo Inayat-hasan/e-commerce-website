@@ -83,7 +83,7 @@ const exampleCart = {
 
 const Cart = () => {
   const navigate = useNavigate();
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
   const [cart, setCart] = useState({
     products: [],
     totalActualPrice: 0,

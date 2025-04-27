@@ -15,7 +15,7 @@ import { selectIsLoggedIn } from "../redux/reducers/authentication/authSelector"
 const ProductEdit = () => {
   const { isMenuOpen } = useMenu();
   const isUserLoggedIn = useAppSelector(selectIsLoggedIn);
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
   const isSideBarOpened = useAppSelector(selectIsOpen);
   const [productName, setProductName] = useState(""); // 1
   const [description, setDescription] = useState(""); // 2

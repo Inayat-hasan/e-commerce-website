@@ -10,7 +10,7 @@ const ForgotPass = () => {
     e.preventDefault();
     try {
       const response = await axios.post(
-        `${import.meta.env.SERVER_URL}/api/admin/forgot-password`,
+        `${import.meta.env.VITE_SERVER_URL}/api/admin/forgot-password`,
         { email },
         {
           withCredentials: true,

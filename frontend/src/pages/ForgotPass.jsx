@@ -12,7 +12,7 @@ const ForgotPass = () => {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
 
   const submitForgotPass = async (e) => {
     e.preventDefault();

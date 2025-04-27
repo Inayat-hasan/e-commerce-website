@@ -35,7 +35,7 @@ const ProductDetail = () => {
       try {
         setLoading(true);
         const req = await axios.get(
-          `${import.meta.env.SERVER_URL}/api/product/admin/get-product/${productId}`,
+          `${import.meta.env.VITE_SERVER_URL}/api/product/admin/get-product/${productId}`,
           { withCredentials: true }
         );
 

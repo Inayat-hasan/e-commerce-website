@@ -7,14 +7,8 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    proxy: {
-      "/api": {
-        target: "https://lushkart-server.onrender.com",
-        changeOrigin: true,
-      },
-    },
   },
   build: {
     outDir: "dist",
-  }
+  },
 });

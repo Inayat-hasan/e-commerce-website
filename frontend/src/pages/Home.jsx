@@ -27,7 +27,7 @@ const Home = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
   const [showPopup, setShowPopup] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);

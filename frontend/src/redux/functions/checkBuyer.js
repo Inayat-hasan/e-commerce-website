@@ -2,7 +2,7 @@ import axios from "axios";
 
 const checkBuyer = async () => {
   try {
-    const serverUrl = import.meta.env.SERVER_URL;
+    const serverUrl = import.meta.env.VITE_SERVER_URL;
     const req = await axios.get(`${serverUrl}/api/buyer/check-buyer`);
     if (req.data.data.user) {
       const buyer = req.data.data.user;
@@ -17,3 +17,4 @@ const checkBuyer = async () => {
 };
 
 export default checkBuyer;
+

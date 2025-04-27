@@ -19,7 +19,7 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
   const navigate = useNavigate();
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
 
   const submitRegisterHandler = async (e) => {
     e.preventDefault();
@@ -231,3 +231,5 @@ const Register = () => {
 };
 
 export default Register;
+
+

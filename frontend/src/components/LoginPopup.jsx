@@ -12,7 +12,7 @@ const LoginPopup = ({ isOpen, onClose, isMobile }) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth <= 480);
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
 
   // Reset form when popup closes
   useEffect(() => {

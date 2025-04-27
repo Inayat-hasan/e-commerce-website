@@ -105,7 +105,7 @@ const Orders = () => {
   const navigate = useNavigate();
   const user = useAppSelector(selectUser); // user : {fullName : '',phoneNumber: "" , email: "", _id : ""}
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
 
   // Get filtered orders based on search term and filters
   const filteredOrders = orders.filter((order) => {

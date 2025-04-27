@@ -14,7 +14,7 @@ const Product = ({ product, handleProductClick }) => {
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const productId = product._id;
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
 
   // Calculate discount percentage
   const discountPercentage = Math.round(

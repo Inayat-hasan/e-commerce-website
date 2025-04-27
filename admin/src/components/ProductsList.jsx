@@ -66,7 +66,7 @@ const ProductsList = ({ products, heading, onProductDelete }) => {
       setIsDeleting(true);
       const response = await axios.delete(
         `${
-          import.meta.env.SERVER_URL
+          import.meta.env.VITE_SERVER_URL
         }/api/product/admin/delete-product/${productId}`,
         { withCredentials: true }
       );

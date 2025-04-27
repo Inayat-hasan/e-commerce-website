@@ -37,7 +37,7 @@ const Header = () => {
   const getAdminDetails = async () => {
     try {
       const req = await axios.get(
-        `${import.meta.env.SERVER_URL}/api/admin/profile`,
+        `${import.meta.env.VITE_SERVER_URL}/api/admin/profile`,
         {
           withCredentials: true,
         }

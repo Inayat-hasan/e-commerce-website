@@ -7,13 +7,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
-    proxy: {
-      "/api": {
-        target: "https://lushkart-server.onrender.com",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
-      },
-    },
+    strictPort: true,
   },
   build: {
     outDir: "dist",

@@ -7,7 +7,7 @@ const ResetPass = () => {
   const [confirmPass, setConfirmPass] = useState("");
   const navigate = useNavigate();
   const { id, token } = useParams();
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
 
   const submitResetPassword = async (e) => {
     e.preventDefault();

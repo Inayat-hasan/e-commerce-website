@@ -18,7 +18,7 @@ const CategorisedProducts = () => {
   const { category } = useParams();
   const dispatch = useAppDispatch();
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
   const navigate = useNavigate();
   const location = useLocation();
 

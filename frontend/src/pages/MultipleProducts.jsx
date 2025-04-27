@@ -17,7 +17,7 @@ const MultipleProducts = () => {
   const { random } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const serverUrl = import.meta.env.SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
 
   // Parse query parameters
   const queryParams = new URLSearchParams(location.search);
