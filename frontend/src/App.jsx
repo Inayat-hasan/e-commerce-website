@@ -17,6 +17,8 @@ import {
   ResetPass,
   ResetSuccess,
   SearchProduct,
+  VerifyOtp,
+  Wishlist,
 } from "./pages/index.js";
 import Layout from "./Layout.jsx";
 
@@ -41,8 +43,13 @@ const App = () => {
           <Route path="/orders" element={<Orders />} />
           <Route path="/order/:orderId" element={<OrderDetail />} />
           <Route path="/products/:random" element={<MultipleProducts />} />
-          <Route path="/category/products/:category" element={<CategorisedProducts />} />
+          <Route
+            path="/category/products/:category"
+            element={<CategorisedProducts />}
+          />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/verify-otp" element={<VerifyOtp />} />
+          <Route path="/wishlist" element={<Wishlist />} />
         </Routes>
       </Layout>
     </Router>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -21,6 +21,14 @@ import { useAppDispatch, useAppSelector } from "../redux/hooks/index.js";
 import Loading from "../components/Loading";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import {
+  selectIsLargeScreen,
+  selectIsSideBarOpened,
+} from "../redux/slices/sidebar/sidebarSelector.js";
+import { setCartCount } from "../redux/slices/cartCount/cartCountSlice.js";
+import fetchCartCount from "../redux/functions/fetchCartCount.js";
+import { setUser } from "../redux/slices/authentication/authSlice.js";
+import checkBuyer from "../redux/functions/checkBuyer.js";
 
 const ordersArrayExample = [
   // this is just an example to help my self, i will remove this afterwards.
@@ -103,11 +111,13 @@ const Orders = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterTimeRange, setFilterTimeRange] = useState("all");
   const navigate = useNavigate();
-  const user = useAppSelector(selectUser); // user : {fullName : '',phoneNumber: "" , email: "", _id : ""}
+  const user = useAppSelector(selectUser);
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
   const serverUrl = import.meta.env.VITE_SERVER_URL;
+  const isLargeScreen = useAppSelector(selectIsLargeScreen);
+  const isSideBarOpened = useAppSelector(selectIsSideBarOpened);
+  const location = useLocation();
 
-  // Get filtered orders based on search term and filters
   const filteredOrders = orders.filter((order) => {
     const matchesSearch = order.product.name
       .toLowerCase()
@@ -132,32 +142,6 @@ const Orders = () => {
         return matchesSearch && matchesStatus;
     }
   });
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (!isLoggedIn) {
-        navigate("/login");
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const response = await axios.get(`${serverUrl}/api/orders/get-orders`, {
-          withCredentials: true,
-        });
-        if (response.data.data.orders) {
-          setOrders(response.data.data.orders);
-        }
-      } catch (error) {
-        console.error("Error fetching orders:", error);
-        setError(error?.response?.data?.message || "Failed to fetch orders");
-        toast.error("Failed to fetch orders");
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkAuth();
-  }, [isLoggedIn, navigate]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -194,10 +178,74 @@ const Orders = () => {
     return new Date(dateString).toLocaleDateString("en-US", options);
   };
 
-  if (loading) return <Loading />;
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${serverUrl}/api/order/get-orders`, {
+        withCredentials: true,
+      });
+      if (response.data.data.orders) {
+        setOrders(response.data.data.orders);
+      }
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      // Handle auth error
+      if (error.response?.status === 401) {
+        return;
+      }
+      setError(error?.response?.data?.message || "Failed to fetch orders");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    } else {
+      fetchOrders();
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    // Check for success message from location state
+    if (location.state?.successMessage) {
+      toast.success(location.state.successMessage);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  if (loading) {
+    return <Loading />;
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="text-center p-8 rounded-lg bg-white dark:bg-gray-800 shadow-xl">
+          <h2 className="text-2xl font-bold text-teal-600 dark:text-teal-400 mb-4">
+            Please Log In
+          </h2>
+          <p className="mb-6 text-gray-600 dark:text-gray-300">
+            You need to be logged in to view your orders
+          </p>
+          <button
+            className="px-6 py-2 bg-teal-600 dark:bg-teal-500 text-white rounded-full hover:bg-teal-700 transition"
+            onClick={() => navigate("/login", { state: { from: "/orders" } })}
+          >
+            Log In
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div
+      className={`min-h-screen bg-gray-50 py-8 ${
+        isLargeScreen && isSideBarOpened ? "pl-80" : "w-full"
+      } ${!isLargeScreen && isSideBarOpened ? "w-full" : ""}`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           {/* Header */}
@@ -213,7 +261,7 @@ const Orders = () => {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search orders..."
+                    placeholder="Search by product name..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -226,7 +274,7 @@ const Orders = () => {
               </div>
 
               {/* Filters */}
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
@@ -236,7 +284,6 @@ const Orders = () => {
                   <option value="pending">Pending</option>
                   <option value="out_for_delivery">Out for Delivery</option>
                   <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
                 </select>
 
                 <select
@@ -258,17 +305,42 @@ const Orders = () => {
             <div className="p-6 text-center">
               <div className="text-red-600 mb-2">{error}</div>
               <button
-                onClick={() => window.location.reload()}
+                onClick={() => {
+                  setError(null);
+                  fetchOrders();
+                }}
                 className="text-teal-600 hover:text-teal-700"
               >
                 Try again
               </button>
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              {searchTerm || filterStatus !== "all"
-                ? "No orders match your filters"
-                : "No orders found"}
+            <div className="p-6 text-center">
+              {searchTerm || filterStatus !== "all" ? (
+                <div className="text-gray-500">
+                  <p>No orders match your filters</p>
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setFilterStatus("all");
+                      setFilterTimeRange("all");
+                    }}
+                    className="text-teal-600 hover:text-teal-700 mt-2"
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              ) : (
+                <div className="text-gray-500">
+                  <p>You haven't placed any orders yet</p>
+                  <Link
+                    to="/shop"
+                    className="text-teal-600 hover:text-teal-700 mt-2 inline-block"
+                  >
+                    Start shopping
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-gray-200">

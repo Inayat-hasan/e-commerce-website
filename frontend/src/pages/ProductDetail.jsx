@@ -22,6 +22,10 @@ import fetchCartCount from "../redux/functions/fetchCartCount";
 import { useAppDispatch, useAppSelector } from "../redux/hooks";
 import { selectIsLoggedIn } from "../redux/slices/authentication/authSelector";
 import "react-toastify/dist/ReactToastify.css";
+import {
+  selectIsLargeScreen,
+  selectIsSideBarOpened,
+} from "../redux/slices/sidebar/sidebarSelector.js";
 
 const ProductDetail = () => {
   const { productId } = useParams();
@@ -39,6 +43,8 @@ const ProductDetail = () => {
   const dispatch = useAppDispatch();
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
   const serverUrl = import.meta.env.VITE_SERVER_URL;
+  const isLargeScreen = useAppSelector(selectIsLargeScreen);
+  const isSideBarOpened = useAppSelector(selectIsSideBarOpened);
 
   useEffect(() => {
     const getProduct = async () => {
@@ -302,7 +308,11 @@ const ProductDetail = () => {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-12">
+    <div
+      className={`bg-gray-50 min-h-screen pb-12 ${
+        isLargeScreen && isSideBarOpened ? "pl-80" : "w-full"
+      } ${!isLargeScreen && isSideBarOpened ? "w-full" : ""}`}
+    >
       {/* Breadcrumb navigation */}
       <div className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3">

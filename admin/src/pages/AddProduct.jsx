@@ -163,9 +163,7 @@ const AddProduct = () => {
 
   return (
     <div
-      className={`flex flex-col gap-4 bg-gray-300 items-center justify-center py-4 ${
-        isSideBarOpened ? "ml-64" : "w-full"
-      }`}
+      className={`flex flex-col gap-4 bg-gray-300 items-center justify-center py-4`}
     >
       {/* Header */}
       <div className="bg-teal-900 text-white w-[95%] rounded-lg flex items-center justify-between px-6 py-4">

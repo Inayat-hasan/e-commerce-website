@@ -2,9 +2,12 @@ import { useLocation, matchPath } from "react-router-dom";
 import Header2 from "./components/Header2";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import { useAppSelector } from "./redux/hooks";
+import { selectIsOpen } from "./redux/reducers/sidebar/sidebarSelector";
 
 const Layout = ({ children }) => {
   const location = useLocation();
+  const isSideBarOpened = useAppSelector(selectIsOpen);
 
   const specialHeaderRoutes = [
     "/login",
@@ -29,7 +32,13 @@ const Layout = ({ children }) => {
   return (
     <div className="min-h-screen flex flex-col">
       {renderHeader()}
-      <main className="flex-grow">{children}</main>
+      <main
+        className={`flex-grow ${
+          !isSpecialRoute() && isSideBarOpened ? "lg:ml-72" : ""
+        }`}
+      >
+        {children}
+      </main>
       <Footer />
     </div>
   );

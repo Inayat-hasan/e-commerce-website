@@ -5,12 +5,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import { Eye, EyeOff } from "lucide-react";
+import { useAppDispatch } from "../redux/hooks";
+import { setUser } from "../redux/slices/authentication/authSlice.js";
 
 const LoginPopup = ({ isOpen, onClose, isMobile }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [isEmailTouched, setIsEmailTouched] = useState(false);
+  const [isPasswordTouched, setIsPasswordTouched] = useState(false);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth <= 480);
   const serverUrl = import.meta.env.VITE_SERVER_URL;
 
@@ -20,6 +29,10 @@ const LoginPopup = ({ isOpen, onClose, isMobile }) => {
       setEmail("");
       setPassword("");
       setLoading(false);
+      setEmailError("");
+      setPasswordError("");
+      setIsEmailTouched(false);
+      setIsPasswordTouched(false);
     }
   }, [isOpen]);
 
@@ -33,18 +46,40 @@ const LoginPopup = ({ isOpen, onClose, isMobile }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
+    setIsEmailTouched(true);
+    setIsPasswordTouched(true);
 
-    // Basic validation
-    if (!email.match(/^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/)) {
-      toast.error("Please enter a valid email address");
-      return;
+    let isValid = true;
+
+    if (!email) {
+      setEmailError("Email is required");
+      isValid = false;
+    } else if (!validateEmail(email)) {
+      setEmailError("Invalid email format");
+      isValid = false;
+    } else {
+      setEmailError("");
     }
+
     if (!password) {
-      toast.error("Password is required");
-      return;
+      setPasswordError("Password is required");
+      isValid = false;
+    } else {
+      setPasswordError("");
     }
+
+    if (!isValid) return;
 
     setLoading(true);
     try {
@@ -54,13 +89,24 @@ const LoginPopup = ({ isOpen, onClose, isMobile }) => {
         { withCredentials: true }
       );
 
-      if (response.status === 200) {
-        toast.success("Login successful!");
+      if (response.data.data.user) {
+        setEmail("");
+        setPassword("");
+        dispatch(setUser(response.data.data.user));
         onClose();
-        window.location.reload(); // Reload to update auth state
+        navigate("/", {
+          state: { successMessage: "Successfully logged in!" },
+        });
+      } else if (response.data.data.userNotFound) {
+        setEmail("");
+        setPassword("");
+        toast.error("User not found! Please register first!");
+      } else if (response.data.data.isPassValid === false) {
+        setPassword("");
+        toast.error("Password is wrong!");
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Login failed");
+      toast.error("Something went wrong, please try again");
     } finally {
       setLoading(false);
     }
@@ -132,22 +178,63 @@ const LoginPopup = ({ isOpen, onClose, isMobile }) => {
                     <input
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setIsEmailTouched(true);
+                        if (e.target.value && validateEmail(e.target.value)) {
+                          setEmailError("");
+                        }
+                      }}
+                      className={`w-full px-3 py-2 border ${
+                        emailError && isEmailTouched
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
                       placeholder="Enter your email"
                     />
+                    {isEmailTouched && emailError && (
+                      <p className="text-red-500 text-sm mt-1">{emailError}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Password
                     </label>
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      placeholder="Enter your password"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          setIsPasswordTouched(true);
+                          if (e.target.value) {
+                            setPasswordError("");
+                          }
+                        }}
+                        className={`w-full px-3 py-2 border ${
+                          passwordError && isPasswordTouched
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        } rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 pr-10`}
+                        placeholder="Enter your password"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                        onClick={togglePasswordVisibility}
+                      >
+                        {showPassword ? (
+                          <EyeOff size={18} className="text-gray-500" />
+                        ) : (
+                          <Eye size={18} className="text-gray-500" />
+                        )}
+                      </button>
+                    </div>
+                    {isPasswordTouched && passwordError && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {passwordError}
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
                     <button
@@ -166,7 +253,33 @@ const LoginPopup = ({ isOpen, onClose, isMobile }) => {
                     disabled={loading}
                     className="w-full bg-teal-600 text-white py-3 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
                   >
-                    {loading ? "Logging in..." : "Login"}
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <svg
+                          className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Logging in...
+                      </div>
+                    ) : (
+                      "Login"
+                    )}
                   </button>
                   <button
                     type="button"

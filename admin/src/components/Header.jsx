@@ -171,7 +171,7 @@ const Header = () => {
 
       {/* if side bar is open */}
       {isSideBarOpened && (
-        <div className="fixed lg:top-16 md:top-0 sm:top-0 left-0 max-h-screen h-screen lg:w-72 shadow-lg sm:z-50 md:z-50 overflow-y-scroll bg-teal-900 text-white px-2">
+        <div className="fixed lg:top-16 md:top-0 sm:top-0 left-0 max-h-screen h-screen lg:w-72 shadow-lg sm:z-50 md:z-50 overflow-y-scroll bg-teal-900 text-white px-2 lg:block">
           {/* Dashboard */}
           <button
             onClick={() => navigate("/admin/dashboard")}
@@ -186,8 +186,7 @@ const Header = () => {
               width="1em"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <path fill="none" d="M0 0h24v24H0z"></path>
-              <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"></path>
+              <path d="M4 11h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1zm10 0h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1zM4 21h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1zm13 0c2.206 0 4-1.794 4-4s-1.794-4-4-4-4 1.794-4 4 1.794 4 4 4z"></path>
             </svg>
             <span>Dashboard</span>
           </button>
@@ -201,15 +200,16 @@ const Header = () => {
                 stroke="currentColor"
                 fill="currentColor"
                 strokeWidth="0"
-                viewBox="0 0 512 512"
-                height="1em"
+                viewBox="0 0 384 512"
+                fontSize="small"
+                height="2em"
                 width="1em"
                 xmlns="http://www.w3.org/2000/svg"
                 className={`${
                   expandedItems.products ? "text-teal-600" : "text-white"
                 }`}
               >
-                <path d="M326.3 218.8c0 20.5-16.7 37.2-37.2 37.2h-70.3v-74.4h70.3c20.5 0 37.2 16.7 37.2 37.2zM504 256c0 137-111 248-248 248S8 393 8 256 119 8 256 8s248 111 248 248zm-128.1-37.2c0-47.9-38.9-86.8-86.8-86.8H169.2v248h49.6v-74.4h70.3c47.9 0 86.8-38.9 86.8-86.8z"></path>
+                <path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm121.2 231.8l-143 141.8c-4.7 4.7-12.3 4.6-17-.1l-82.6-83.3c-4.7-4.7-4.6-12.3.1-17L99.1 285c4.7-4.7 12.3-4.6 17 .1l46 46.4 106-105.2c4.7-4.7 12.3-4.6 17 .1l28.2 28.4c4.7 4.8 4.6 12.3-.1 17z"></path>
               </svg>
               <span>Products</span>
             </div>

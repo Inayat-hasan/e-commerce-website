@@ -81,6 +81,10 @@ const productSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    reviewsCount: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

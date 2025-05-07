@@ -17,6 +17,9 @@ import {
   updateAddress,
   deleteAddress,
   selectAddress,
+  checkOtpStatus,
+  sendOtp,
+  verifyOtpForEmailChange,
 } from "../controllers/buyer-controller.js";
 
 const buyerRouter = Router();
@@ -29,7 +32,9 @@ buyerRouter.route("/logout").post(verifyBuyerJWT, logout);
 
 buyerRouter.route("/resend-otp").post(resendOtp);
 
-buyerRouter.route("/update-buyer").post(verifyBuyerJWT, updateAccountDetails);
+buyerRouter.route("/check-otp-status").post(checkOtpStatus);
+
+buyerRouter.route("/update-buyer").put(verifyBuyerJWT, updateAccountDetails);
 
 buyerRouter.route("/current-user").get(verifyBuyerJWT, getCurrentBuyer);
 
@@ -42,6 +47,12 @@ buyerRouter.route("/reset-password/:id/:token").post(resetPassword);
 buyerRouter.route("/change-password").post(verifyBuyerJWT, changePassword);
 
 buyerRouter.route("/check-buyer").get(checkBuyer);
+
+buyerRouter.route("/send-otp").post(verifyBuyerJWT, sendOtp);
+
+buyerRouter
+  .route("/verify-otp-for-email-change")
+  .post(verifyBuyerJWT, verifyOtpForEmailChange);
 
 buyerRouter.route("/get-addresses").get(verifyBuyerJWT, getAddresses);
 

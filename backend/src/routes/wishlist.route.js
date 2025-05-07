@@ -6,6 +6,7 @@ import {
   isProductInWishlist,
   removeFromWishList,
   wishListToCart,
+  selectedProductsToCart,
 } from "../controllers/wishList-controller.js";
 import { verifyBuyerJWT } from "../middlewares/auth.middleware.js";
 
@@ -17,9 +18,15 @@ wishListRouter.post("/remove-product", verifyBuyerJWT, removeFromWishList);
 
 wishListRouter.post("/remove-all-products", verifyBuyerJWT, clearWishList);
 
-wishListRouter.post("/get-wishlist", verifyBuyerJWT, getWishList);
+wishListRouter.get("/get-wishlist", verifyBuyerJWT, getWishList);
 
 wishListRouter.post("/add-to-cart", verifyBuyerJWT, wishListToCart);
+
+wishListRouter.post(
+  "/selected-to-cart",
+  verifyBuyerJWT,
+  selectedProductsToCart
+);
 
 wishListRouter.post(
   "/is-product-in-wishlist",

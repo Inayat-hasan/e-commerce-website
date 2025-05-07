@@ -20,9 +20,15 @@ import {
   selectIsLoggedIn,
   selectUser,
 } from "../redux/slices/authentication/authSelector.js";
+import {
+  selectIsLargeScreen,
+  selectIsSideBarOpened,
+} from "../redux/slices/sidebar/sidebarSelector.js";
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const isLargeScreen = useAppSelector(selectIsLargeScreen);
+  const isSideBarOpened = useAppSelector(selectIsSideBarOpened);
   const [addressFormVisible, setAddressFormVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const serverUrl = import.meta.env.VITE_SERVER_URL;
@@ -61,12 +67,15 @@ const Checkout = () => {
       setLoadingStates((prev) => ({ ...prev, pageLoading: true }));
       try {
         const directBuyInfo = location.state?.directBuyProduct;
+
+        const cartInfo = location.state?.cartBuyInfo;
+
         setIsDirectBuy(!!directBuyInfo);
 
         if (directBuyInfo) {
           await fetchAndFormatDirectBuyProduct(directBuyInfo);
         } else {
-          await fetchCart();
+          await fetchCart(cartInfo);
         }
 
         // Fetch addresses if user is logged in
@@ -83,6 +92,11 @@ const Checkout = () => {
 
     initPage();
   }, [location.state, isLoggedIn]);
+
+  const fetchCart = async (cartBuyInfo) => {
+    if (!cartBuyInfo) return;
+    setCart(cartBuyInfo.cart);
+  };
 
   const fetchAndFormatDirectBuyProduct = async (directBuyInfo) => {
     try {
@@ -120,12 +134,10 @@ const Checkout = () => {
         });
       } else {
         toast.error("Failed to fetch product details");
-        navigate(-1);
       }
     } catch (error) {
       console.error("Error fetching product : ", error);
       toast.error("Failed to fetch product details");
-      navigate(-1);
     }
   };
 
@@ -194,7 +206,7 @@ const Checkout = () => {
       const { paymentSessionId, orderId, orders } = orderResponse.data.data;
 
       if (!paymentSessionId || !orderId) {
-        console.log("Missing session ID or order ID:", orderResponse.data.data);
+        toast.error("Failed to create order. Please try again.");
         return;
       }
 
@@ -223,14 +235,15 @@ const Checkout = () => {
           toast.error("Payment failed. Please try again.");
           return;
         }
-        console.log("Payment response : ", response);
+
         setCart([]);
 
-        toast.success("Order placed successfully!");
-        // navigate("/orders");
+        window.history.replaceState({}, document.title);
+        navigate("/orders", {
+          state: { successMessage: "Order placed successfully!" },
+        });
       }
     } catch (error) {
-      console.error("Order placement failed:", error);
       toast.error(
         error.response?.data?.message ||
           "Failed to place order. Please try again."
@@ -421,10 +434,13 @@ const Checkout = () => {
   };
 
   const deleteAddress = async (address) => {
-    const result = await axios.delete(`${serverUrl}/api/buyer/address/delete-address`, {
-      data: { addressId: address._id },
-      withCredentials: true,
-    });
+    const result = await axios.delete(
+      `${serverUrl}/api/buyer/address/delete-address`,
+      {
+        data: { addressId: address._id },
+        withCredentials: true,
+      }
+    );
     if (result.data.data.isAddressDeleted === true) {
       const updatedAddresses = addresses.filter(
         (addr) => addr._id !== address._id
@@ -442,23 +458,6 @@ const Checkout = () => {
     }
   };
 
-  const fetchCart = async () => {
-    try {
-      const result = await axios.get(`${serverUrl}/api/cart/get-cart`, {
-        withCredentials: true,
-      });
-      if (result.data.data.cart.products.length > 0) {
-        setCart(result.data.data.cart.products);
-      } else {
-        setCart([]);
-        toast.error("Failed to fetch cart!");
-      }
-    } catch (error) {
-      setCart([]);
-      toast.error("Failed to fetch cart, please try again.");
-    }
-  };
-
   const formatAddress = (address) => {
     if (!address) return "";
     return `${address.address}${
@@ -473,7 +472,11 @@ const Checkout = () => {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div
+      className={`bg-gray-50 min-h-screen ${
+        isLargeScreen && isSideBarOpened ? "pl-80" : "w-full"
+      } ${!isLargeScreen && isSideBarOpened ? "w-full" : ""}`}
+    >
       <div className="max-w-7xl mx-auto px-4 py-4">
         <button
           onClick={() =>
@@ -538,7 +541,7 @@ const Checkout = () => {
           </div>
 
           <div className="md:w-1/3">
-            <PriceDetails cart={calculatedPrices} />
+            <PriceDetails prices={calculatedPrices} />
           </div>
         </div>
       </div>

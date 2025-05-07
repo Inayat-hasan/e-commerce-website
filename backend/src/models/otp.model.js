@@ -1,10 +1,10 @@
-import mongoose, { Schema, model } from "mongoose";
+import { Schema, model } from "mongoose";
 import bcrypt from "bcrypt";
 
 const otpSchema = Schema(
   {
     user: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "user",
       required: true,
     },
@@ -57,10 +57,5 @@ otpSchema.methods.isOtpCorrect = async function (inputOtp) {
 otpSchema.methods.isOtpExpired = function () {
   return this.otpExpiration < Date.now();
 };
-
-// otpSchema.statics.deleteExpiredOtp = async function () {
-//   const now = Date.now();
-//   await this.deleteMany({ otpExpiration: { $lt: now } });
-// };
 
 export const otpModel = model("OTP", otpSchema);

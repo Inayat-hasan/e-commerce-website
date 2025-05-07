@@ -410,6 +410,200 @@ const getCartCount = asyncHandler(async (req, res) => {
   }
 });
 
+// Add new controller for moving all products to wishlist
+const moveAllToWishlist = asyncHandler(async (req, res) => {
+  const buyer = req.buyer._id;
+
+  if (!buyer) {
+    return res.status(404).json(new ApiError(404, "Buyer not found"));
+  }
+
+  try {
+    // Find cart and populate product details
+    const cart = await cartModel
+      .findOne({ buyer })
+      .populate("products.productId");
+
+    if (!cart) {
+      return res.status(404).json(new ApiError(404, "Cart not found"));
+    }
+
+    if (cart.products.length === 0) {
+      return res.status(400).json(new ApiError(400, "Cart is empty"));
+    }
+
+    // Find or create wishlist
+    let wishList = await wishListModel.findOne({ buyer });
+
+    if (!wishList) {
+      return res.status(404).json(new ApiError(404, "Wishlist not found"));
+    }
+
+    // Add all products to wishlist if they don't already exist
+    let addedCount = 0;
+    let alreadyExistCount = 0;
+
+    for (const item of cart.products) {
+      const productId = item.productId._id.toString();
+
+      // Check if product already exists in wishlist
+      const existingProduct = wishList.products.find(
+        (wishlistItem) => wishlistItem.productId.toString() === productId
+      );
+
+      if (!existingProduct) {
+        wishList.products.push({ productId });
+        addedCount++;
+      } else {
+        alreadyExistCount++;
+      }
+    }
+
+    // Clear the cart
+    cart.products = [];
+    cart.totalActualPrice = 0;
+    cart.totalDiscount = 0;
+    cart.finalAmount = 0;
+    cart.productsCount = 0;
+    cart.deliveryCharges = 0;
+    cart.platformFee = 0;
+
+    // Save both cart and wishlist
+    await Promise.all([cart.save(), wishList.save()]);
+
+    let message = "All products moved to wishlist successfully";
+    if (alreadyExistCount > 0) {
+      message = `${addedCount} products moved to wishlist. ${alreadyExistCount} products were already in your wishlist.`;
+    }
+
+    return res.status(200).json(
+      new ApiResponse(200, message, {
+        cart,
+        wishList,
+        addedCount,
+        alreadyExistCount,
+      })
+    );
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal server error", error));
+  }
+});
+
+// Add new controller for moving selected products to wishlist
+const moveSelectedToWishlist = asyncHandler(async (req, res) => {
+  const { productIds } = req.body;
+  const buyer = req.buyer._id;
+
+  if (!buyer) {
+    return res.status(404).json(new ApiError(404, "Buyer not found"));
+  }
+
+  if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+    return res
+      .status(400)
+      .json(new ApiError(400, "Product IDs are required and must be an array"));
+  }
+
+  try {
+    // Find cart and populate product details
+    const cart = await cartModel
+      .findOne({ buyer })
+      .populate("products.productId");
+
+    if (!cart) {
+      return res.status(404).json(new ApiError(404, "Cart not found"));
+    }
+
+    // Find or create wishlist
+    let wishList = await wishListModel.findOne({ buyer });
+
+    if (!wishList) {
+      return res.status(404).json(new ApiError(404, "Wishlist not found"));
+    }
+
+    // Add selected products to wishlist if they don't already exist
+    let addedCount = 0;
+    let alreadyExistCount = 0;
+    let notFoundCount = 0;
+
+    for (const productId of productIds) {
+      // Check if product exists in cart
+      const cartItem = cart.products.find(
+        (item) => item.productId._id.toString() === productId
+      );
+
+      if (!cartItem) {
+        notFoundCount++;
+        continue;
+      }
+
+      // Check if product already exists in wishlist
+      const existingProduct = wishList.products.find(
+        (wishlistItem) => wishlistItem.productId.toString() === productId
+      );
+
+      if (!existingProduct) {
+        wishList.products.push({ productId });
+        addedCount++;
+      } else {
+        alreadyExistCount++;
+      }
+    }
+
+    // Remove the selected products from cart
+    cart.products = cart.products.filter(
+      (item) => !productIds.includes(item.productId._id.toString())
+    );
+
+    // Update cart totals
+    const totals = cart.products.reduce(
+      (acc, item) => ({
+        totalActualPrice: acc.totalActualPrice + item.actualPrice,
+        totalDiscount: acc.totalDiscount + item.priceOfDiscount,
+        finalAmount: acc.finalAmount + item.totalPrice,
+      }),
+      { totalActualPrice: 0, totalDiscount: 0, finalAmount: 0 }
+    );
+
+    cart.totalActualPrice = Math.round(totals.totalActualPrice);
+    cart.totalDiscount = Math.round(totals.totalDiscount);
+    cart.finalAmount = Math.round(totals.finalAmount);
+    cart.deliveryCharges = Math.round(totals.finalAmount) > 999 ? 0 : 40;
+    cart.platformFee = 20;
+    cart.productsCount = cart.products.length;
+
+    // Save both cart and wishlist
+    await Promise.all([cart.save(), wishList.save()]);
+
+    let message = "Selected products moved to wishlist successfully";
+    if (alreadyExistCount > 0 || notFoundCount > 0) {
+      message = `${addedCount} products moved to wishlist. `;
+      if (alreadyExistCount > 0) {
+        message += `${alreadyExistCount} products were already in your wishlist. `;
+      }
+      if (notFoundCount > 0) {
+        message += `${notFoundCount} products were not found in your cart.`;
+      }
+    }
+
+    return res.status(200).json(
+      new ApiResponse(200, message, {
+        cart,
+        wishList,
+        addedCount,
+        alreadyExistCount,
+        notFoundCount,
+      })
+    );
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal server error", error));
+  }
+});
+
 export {
   addToCart,
   getCart,
@@ -419,4 +613,6 @@ export {
   addProductFromCartToWishList,
   isProductInCart,
   getCartCount,
+  moveAllToWishlist,
+  moveSelectedToWishlist,
 };

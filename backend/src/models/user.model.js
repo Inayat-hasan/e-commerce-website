@@ -12,7 +12,6 @@ const userSchema = new Schema(
     },
     phoneNumber: {
       type: String,
-      required: true,
       trim: true,
     },
     email: {
@@ -36,6 +35,11 @@ const userSchema = new Schema(
       required: true,
       index: true,
       trim: true,
+    },
+    isVerified: {
+      type: Boolean,
+      required: true,
+      default: false,
     },
   },
   {

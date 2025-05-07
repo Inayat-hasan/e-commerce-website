@@ -13,14 +13,21 @@ import {
   faArrowLeft,
   faTag,
 } from "@fortawesome/free-solid-svg-icons";
+import { useAppSelector } from "../redux/hooks";
+import {
+  selectIsLargeScreen,
+  selectIsSideBarOpened,
+} from "../redux/slices/sidebar/sidebarSelector.js";
+import { selectIsLoggedIn } from "../redux/slices/authentication/authSelector.js";
 
 const CategorisedProducts = () => {
   const { category } = useParams();
-  const dispatch = useAppDispatch();
-  const isLoggedIn = useAppSelector(selectIsLoggedIn);
+  const isLoggedIn = useAppSelector(selectIsLoggedIn); // backend can go here but only of products neither of wishlist nor of cart.
   const serverUrl = import.meta.env.VITE_SERVER_URL;
   const navigate = useNavigate();
   const location = useLocation();
+  const isLargeScreen = useAppSelector(selectIsLargeScreen);
+  const isSideBarOpened = useAppSelector(selectIsSideBarOpened);
 
   // Parse query parameters
   const queryParams = new URLSearchParams(location.search);
@@ -215,7 +222,11 @@ const CategorisedProducts = () => {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-10">
+    <div
+      className={`bg-gray-50 min-h-screen pb-10 ${
+        isLargeScreen && isSideBarOpened ? "pl-80" : "w-full"
+      } ${!isLargeScreen && isSideBarOpened ? "w-full" : ""}`}
+    >
       {/* Header with title and back button */}
       <div className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center">

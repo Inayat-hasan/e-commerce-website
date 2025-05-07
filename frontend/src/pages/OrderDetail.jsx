@@ -15,6 +15,11 @@ import {
 import Loading from "../components/Loading";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useAppSelector } from "../redux/hooks";
+import {
+  selectIsLargeScreen,
+  selectIsSideBarOpened,
+} from "../redux/slices/sidebar/sidebarSelector.js";
 
 const OrderDetail = () => {
   const { orderId } = useParams();
@@ -23,6 +28,8 @@ const OrderDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const isLargeScreen = useAppSelector(selectIsLargeScreen);
+  const isSideBarOpened = useAppSelector(selectIsSideBarOpened);
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -109,7 +116,11 @@ const OrderDetail = () => {
   if (!order) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div
+      className={`min-h-screen bg-gray-50 py-8 ${
+        isLargeScreen && isSideBarOpened ? "pl-80" : "w-full"
+      } ${!isLargeScreen && isSideBarOpened ? "w-full" : ""}`}
+    >
       <div className="max-w-3xl mx-auto px-4">
         {/* Back Button */}
         <button

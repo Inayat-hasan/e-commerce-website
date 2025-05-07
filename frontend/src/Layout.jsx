@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useLocation, matchPath } from "react-router-dom";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -14,6 +14,7 @@ const Layout = ({ children }) => {
     "/reset-password/:id/:token",
     "/reset-password/success",
     "/login/forgot-password/success",
+    "/verify-otp",
   ];
 
   const isSpecialRoute = () => {
@@ -30,7 +31,9 @@ const Layout = ({ children }) => {
   return (
     <div className="min-h-screen flex flex-col">
       {renderHeader()}
-      <main className="flex-grow">{children}</main>
+      <main className="flex-grow relative transition-all duration-300 overflow-y-auto">
+        {children}
+      </main>
       <Footer />
     </div>
   );

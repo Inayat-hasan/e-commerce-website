@@ -12,6 +12,11 @@ import {
   faSort,
   faArrowLeft,
 } from "@fortawesome/free-solid-svg-icons";
+import { useAppSelector } from "../redux/hooks";
+import {
+  selectIsLargeScreen,
+  selectIsSideBarOpened,
+} from "../redux/slices/sidebar/sidebarSelector.js";
 
 const MultipleProducts = () => {
   const { random } = useParams();
@@ -24,6 +29,8 @@ const MultipleProducts = () => {
   const currentPage = parseInt(queryParams.get("page")) || 1;
   const currentLimit = parseInt(queryParams.get("limit")) || 12;
   const currentSort = queryParams.get("sort") || "latest";
+  const isLargeScreen = useAppSelector(selectIsLargeScreen);
+  const isSideBarOpened = useAppSelector(selectIsSideBarOpened);
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +84,11 @@ const MultipleProducts = () => {
       };
 
       // Make API call with params
-      const response = await axios.get(getApiEndpoint(), { params });
+      const response = await axios.get(
+        getApiEndpoint(),
+        { params },
+        { withCredentials: true }
+      );
 
       // Check response format and extract data
       if (response.data.data) {
@@ -183,7 +194,11 @@ const MultipleProducts = () => {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-10">
+    <div
+      className={`bg-gray-50 min-h-screen pb-10 ${
+        isLargeScreen && isSideBarOpened ? "pl-80" : "w-full"
+      } ${!isLargeScreen && isSideBarOpened ? "w-full" : ""}`}
+    >
       {/* Header with title and back button */}
       <div className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center">

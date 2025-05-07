@@ -10,12 +10,37 @@ import jwt from "jsonwebtoken";
 import { sendForgotPassLink } from "../utils/sendEmail.js";
 import { cartModel } from "../models/cart.model.js";
 import { wishListModel } from "../models/wishList.model.js";
+import { agenda } from "../utils/agenda.js";
+
+agenda.define("deleteUnverifiedUsers", async (job) => {
+  const { userId } = job.attrs.data;
+  try {
+    const user = await userModel.findOne({
+      _id: userId,
+      role: "buyer",
+      isVerified: false,
+    });
+    if (!user) {
+      console.log("User not found");
+      return;
+    }
+    await Promise.all([
+      userModel.findByIdAndDelete(userId),
+      cartModel.deleteMany({ buyer: userId }),
+      wishListModel.deleteMany({ buyer: userId }),
+      buyerModel.deleteMany({ user: userId }),
+      otpModel.deleteMany({ user: userId }),
+    ]);
+  } catch (error) {
+    console.error("Error deleting user:", error);
+  }
+});
 
 const register = asyncHandler(async (req, res) => {
   try {
-    const { fullName, phoneNumber, email, password } = req.body;
+    const { fullName, email, password, phoneNumber } = req.body;
 
-    if (!fullName || !phoneNumber || !email || !password) {
+    if (!fullName || !email || !password) {
       return res
         .status(400)
         .json(new ApiError(400, "All fields are required!"));
@@ -23,12 +48,15 @@ const register = asyncHandler(async (req, res) => {
     if (!/\S+@\S+\.\S+/.test(email)) {
       return res.status(400).json(new ApiError(400, "Invalid email format!"));
     }
-    const userExists = await userModel.findOne({ email, role: "buyer" });
+    const userExists = await userModel.findOne({
+      email,
+      role: "buyer",
+      isVerified: true,
+    });
     if (userExists) {
-      return res.status(400).json(
-        new ApiError(400, "You are already registered! please login", {
-          navigateToLogin: true,
-          user: userExists,
+      return res.status(200).json(
+        new ApiResponse(200, "You are already registered! please login", {
+          userAlreadyExists,
         })
       );
     } else {
@@ -38,34 +66,218 @@ const register = asyncHandler(async (req, res) => {
         phoneNumber,
         password,
         role: "buyer",
+        isVerified: false,
       });
-      const cart = await cartModel.create({
+
+      await cartModel.create({
         buyer: user._id,
         products: [],
       });
-      const wishlist = await wishListModel.create({
+
+      await wishListModel.create({
         buyer: user._id,
         products: [],
       });
-      const buyer = await buyerModel.create({
+
+      await buyerModel.create({
         user: user._id,
       });
-      const otp = await generateAndSendOtp(user);
+
+      await generateAndSendOtp(user);
+
+      const time = new Date(Date.now() + 30 * 60 * 1000);
+
+      await agenda.schedule(time, "deleteUnverifiedUsers", {
+        userId: user._id,
+      });
+
       return res.status(200).json(
         new ApiResponse(200, "user Registered!", {
           user,
-          cart,
-          wishlist,
-          buyer,
-          otp,
         })
       );
     }
   } catch (error) {
-    console.log("err : ", error);
+    console.log(error);
     return res
       .status(500)
       .json(new ApiError(500, "Error in registering user!", { error }));
+  }
+});
+
+const verifyOtp = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    return res.status(400).json(new ApiError(400, "OTP is required!"));
+  }
+
+  const user = await userModel.findOne({
+    email,
+    role: "buyer",
+    isVerified: false,
+  });
+  if (!user) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, "Something went wrong!", { userNotFound: true })
+      );
+  }
+
+  const otpUser = await otpModel.findOne({ user: user._id });
+  if (!otpUser) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "OTP not found", { otpNotFound: true }));
+  }
+
+  if (otpUser.isOtpExpired()) {
+    await otpUser.deleteOne();
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "OTP Expired!", { otpExpired: true }));
+  }
+
+  if (otpUser.otpAttempts >= 10) {
+    await otpUser.deleteOne();
+    return res.status(200).json(
+      new ApiResponse(200, "Maximum OTP attempts exceeded!", {
+        maxOtpAttempts: true,
+      })
+    );
+  }
+
+  const isOtpValid = await otpUser.isOtpCorrect(otp);
+  if (!isOtpValid) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, "Please enter a valid OTP!", { isOtpValid: false })
+      );
+  }
+
+  user.isVerified = true;
+  await user.save();
+
+  await agenda.cancel({
+    name: "deleteUnverifiedUsers",
+    "data.userId": user._id,
+  });
+
+  await otpModel.deleteMany({ user: user._id });
+
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user._id
+  );
+
+  return res
+    .status(200)
+    .cookie("buyerAccessToken", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      maxAge: 60 * 60 * 1000,
+    })
+    .cookie("buyerRefreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    })
+    .json(
+      new ApiResponse(200, "OTP verified successfully!", {
+        user,
+      })
+    );
+});
+
+const resendOtp = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await userModel.findOne({
+      email,
+      role: "buyer",
+      isVerified: false,
+    });
+    const otpSent = await generateAndSendOtp(user);
+    if (!otpSent) {
+      return res
+        .status(200)
+        .json(new ApiResponse(200, "Something went wrong", { otpSent: false }));
+    } else {
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(200, "Otp sent successfully!", { otpSent: true })
+        );
+    }
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Something went wrong", { error }));
+  }
+});
+
+const checkOtpStatus = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Find user by email
+    const user = await userModel.findOne({
+      email,
+      role: "buyer",
+      isVerified: false,
+    });
+
+    if (!user) {
+      return res.status(200).json(
+        new ApiResponse(200, "User not found", {
+          isOtpActive: false,
+          remainingTime: 0,
+        })
+      );
+    }
+
+    // Find OTP for this user
+    const otpRecord = await otpModel.findOne({ user: user._id });
+
+    if (!otpRecord) {
+      return res.status(200).json(
+        new ApiResponse(200, "No OTP found", {
+          isOtpActive: false,
+          remainingTime: 0,
+        })
+      );
+    }
+
+    // Check if OTP is expired
+    if (otpRecord.isOtpExpired()) {
+      return res.status(200).json(
+        new ApiResponse(200, "OTP has expired", {
+          isOtpActive: false,
+          remainingTime: 0,
+        })
+      );
+    }
+
+    // Calculate remaining time in seconds
+    const currentTime = Date.now();
+    const expiryTime = otpRecord.otpExpiration;
+    const remainingTime = Math.max(
+      0,
+      Math.floor((expiryTime - currentTime) / 1000)
+    );
+
+    return res.status(200).json(
+      new ApiResponse(200, "OTP is active", {
+        isOtpActive: true,
+        remainingTime,
+      })
+    );
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Something went wrong", { error }));
   }
 });
 
@@ -78,38 +290,53 @@ const login = asyncHandler(async (req, res) => {
       .json(new ApiError(400, "Email and password are required!"));
   }
 
-  const user = await userModel.findOne({ email, role: "buyer" });
-  if (!user) {
-    return res
-      .status(400)
-      .json(new ApiError(400, "User not found! Please register first!"));
-  }
+  try {
+    const user = await userModel.findOne({ email, role: "buyer" });
+    if (!user) {
+      return res.status(200).json(
+        new ApiResponse(200, "User not found! Please register first!", {
+          userNotFound: true,
+        })
+      );
+    }
 
-  const isPassValid = await user.isPasswordCorrect(password);
-  if (!isPassValid) {
-    return res.status(400).json(new ApiError(400, "Password is wrong!"));
-  }
+    const isPassValid = await user.isPasswordCorrect(password);
+    if (!isPassValid) {
+      return res.status(200).json(
+        new ApiResponse(200, "Password is wrong!", {
+          isPassValid: false,
+        })
+      );
+    }
 
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    user._id
-  );
-
-  // const options = {
-  //   httpOnly: true,
-  //   secure: true,
-  // };
-
-  return res
-    .status(200)
-    .cookie("buyerAccessToken", accessToken)
-    .cookie("buyerRefreshToken", refreshToken)
-    .json(
-      new ApiResponse(200, "User logged in successfully!", {
-        user,
-        accessToken,
-        refreshToken,
-      })
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      user._id
     );
+
+    return res
+      .status(200)
+      .cookie("buyerAccessToken", accessToken, {
+        secure: true,
+        httpOnly: true,
+        sameSite: "none",
+        maxAge: 60 * 60 * 1000,
+      })
+      .cookie("buyerRefreshToken", refreshToken, {
+        secure: true,
+        httpOnly: true,
+        sameSite: "none",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      })
+      .json(
+        new ApiResponse(200, "User logged in successfully!", {
+          user,
+        })
+      );
+  } catch (error) {
+    return res
+      .status(402)
+      .json(new ApiError(402, "Error while logging in", { error }));
+  }
 });
 
 const logout = asyncHandler(async (req, res) => {
@@ -211,56 +438,6 @@ const resetPassword = asyncHandler(async (req, res) => {
   });
 });
 
-const verifyOtp = asyncHandler(async (req, res) => {
-  const { email, otp } = req.body;
-  if (!email || !otp) {
-    return res.status(400).json(new ApiError(400, "Otp is required!"));
-  }
-  const user = await userModel.findOne({ email, role: "buyer" });
-  const otpUser = await otpModel.findOne({ user: user._id });
-
-  if (otpUser.isOtpExpired()) {
-    return res.status(400).json(new ApiError(400, "OTP Expired!"));
-  }
-
-  const isOtpValid = await otpUser.isOtpCorrect(otp);
-  if (!isOtpValid) {
-    return res.status(400).json(new ApiError(400, "Pls Enter Valid Otp!"));
-  }
-
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    user._id
-  );
-
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
-
-  return res
-    .status(200)
-    .cookie("buyerAccessToken", accessToken, options)
-    .cookie("buyerRefreshToken", refreshToken, options)
-    .json(
-      new ApiResponse(200, "Otp verified successfully!", {
-        user,
-        accessToken,
-        refreshToken,
-      })
-    );
-});
-
-const resendOtp = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-  const user = await userModel.findOne({ email, role: "buyer" });
-  const otpSent = await generateAndSendOtp(user);
-  if (!otpSent) {
-    return res.status(500).json(new ApiError(500, "Something went wrong"));
-  } else {
-    return res.status(200).json(new ApiResponse(200, "Otp sent successfully!"));
-  }
-});
-
 const getCurrentBuyer = asyncHandler(async (req, res) => {
   const buyerId = req.buyer._id;
   if (!buyerId) {
@@ -290,9 +467,9 @@ const getCurrentBuyer = asyncHandler(async (req, res) => {
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
   try {
-    const { fullName, phoneNumber } = req.body;
+    const { fullName, phoneNumber, email } = req.body;
 
-    if (!fullName || !phoneNumber) {
+    if (!fullName || !phoneNumber || !email) {
       throw new ApiError(400, "All fields are required");
     }
 
@@ -303,6 +480,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
           $set: {
             fullName,
             phoneNumber,
+            email,
           },
         },
         { new: true }
@@ -345,9 +523,11 @@ const changePassword = asyncHandler(async (req, res) => {
     } else {
       user.password = newPassword;
       await user.save();
-      return res
-        .status(200)
-        .json(new ApiResponse(200, "Password changed successfully!"));
+      return res.status(200).json(
+        new ApiResponse(200, "Password changed successfully!", {
+          passChanged: true,
+        })
+      );
     }
   } catch (error) {
     console.log("error : ", error);
@@ -404,8 +584,18 @@ const checkBuyer = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .cookie("buyerAccessToken", newAccessToken)
-      .cookie("buyerRefreshToken", newRefreshToken)
+      .cookie("buyerAccessToken", newAccessToken, {
+        secure: true,
+        httpOnly: true,
+        sameSite: "none",
+        maxAge: 60 * 60 * 1000,
+      })
+      .cookie("buyerRefreshToken", newRefreshToken, {
+        secure: true,
+        httpOnly: true,
+        sameSite: "none",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      })
       .json(
         new ApiResponse(200, "Tokens refreshed", {
           user: result.data.user,
@@ -573,21 +763,122 @@ const selectAddress = asyncHandler(async (req, res) => {
   );
 });
 
+const sendOtp = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json(new ApiError(400, "Email is required!"));
+  }
+
+  // For profile update, we need to check if the user is authenticated
+  // This is handled by the verifyBuyerJWT middleware
+  // We should check if the email is already in use by another user
+  const existingUser = await userModel.findOne({ email, role: "buyer" });
+
+  if (
+    existingUser &&
+    existingUser._id.toString() !== req.buyer._id.toString()
+  ) {
+    return res.status(200).json(
+      new ApiResponse(200, "Email already in use", {
+        emailAlreadyExist: true,
+      })
+    );
+  }
+
+  // Get the current user from the request (set by middleware)
+  const user = await userModel.findById(req.buyer._id);
+  if (!user) {
+    return res.status(400).json(new ApiError(400, "User not found"));
+  }
+
+  // Generate and send OTP to the new email
+  const { newOtp } = await generateAndSendOtp({
+    ...user.toObject(),
+    email: email, // Use the new email for OTP
+  });
+
+  if (!newOtp) {
+    return res.status(400).json(new ApiError(400, "Something went wrong!"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Otp sent successfully!", { otpSent: true }));
+});
+
+const verifyOtpForEmailChange = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res
+      .status(400)
+      .json(new ApiError(400, "Email and otp are required!"));
+  }
+
+  // Get the current user from the request (set by middleware)
+  const currentUser = await userModel.findById(req.buyer._id);
+  if (!currentUser) {
+    return res.status(400).json(new ApiError(400, "User not found"));
+  }
+
+  // Find the OTP document for the current user
+  const otpDoc = await otpModel.findOne({ user: currentUser._id });
+
+  if (!otpDoc) {
+    return res
+      .status(400)
+      .json(new ApiError(400, "OTP not found. Please request a new OTP."));
+  }
+
+  const isOtpExpired = otpDoc.isOtpExpired();
+
+  if (isOtpExpired) {
+    await otpDoc.deleteOne();
+    return res.status(200).json(
+      new ApiResponse(200, "OTP expired. Please request a new OTP.", {
+        otpExpired: true,
+      })
+    );
+  }
+
+  const isOtpCorrect = await otpDoc.isOtpCorrect(otp);
+
+  if (!isOtpCorrect) {
+    return res
+      .status(400)
+      .json(new ApiError(400, "Invalid OTP. Please try again."));
+  }
+
+  // OTP is valid, clean up the OTP document
+  await otpModel.deleteMany({ user: currentUser._id });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Email verified successfully!", {
+      otpVerified: true,
+    })
+  );
+});
+
 export {
   register,
   login,
-  forgotPassword,
-  resetPassword,
-  verifyOtp,
-  resendOtp,
   logout,
+  refreshAccessToken,
+  changePassword,
   getCurrentBuyer,
   updateAccountDetails,
-  changePassword,
   checkBuyer,
   getAddresses,
   addAddress,
   updateAddress,
   deleteAddress,
   selectAddress,
+  verifyOtp,
+  resendOtp,
+  checkOtpStatus,
+  forgotPassword,
+  resetPassword,
+  sendOtp,
+  verifyOtpForEmailChange,
 };

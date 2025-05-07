@@ -11,6 +11,11 @@ import {
   faSort,
   faArrowLeft,
 } from "@fortawesome/free-solid-svg-icons";
+import {
+  selectIsLargeScreen,
+  selectIsSideBarOpened,
+} from "../redux/slices/sidebar/sidebarSelector.js";
+import { useAppSelector } from "../redux/hooks";
 
 const SearchProduct = () => {
   const { search } = useParams();
@@ -25,10 +30,17 @@ const SearchProduct = () => {
     totalPages: 0,
   });
 
+  const isLargeScreen = useAppSelector(selectIsLargeScreen);
+  const isSideBarOpened = useAppSelector(selectIsSideBarOpened);
+
   // Fetch products logic will be added here
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      className={`min-h-screen bg-gray-50 ${
+        isLargeScreen && isSideBarOpened ? "pl-80" : "w-full"
+      } ${!isLargeScreen && isSideBarOpened ? "w-full" : ""}`}
+    >
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">

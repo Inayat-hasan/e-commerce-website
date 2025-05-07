@@ -1,7 +1,12 @@
-import React, { useEffect, useState, useLayoutEffect, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
-import Loading from "../components/Loading";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   faChevronRight,
   faChevronLeft,
@@ -22,125 +27,213 @@ import { setCartCount } from "../redux/slices/cartCount/cartCountSlice";
 import fetchCartCount from "../redux/functions/fetchCartCount";
 import ProductRow from "../components/ProductRow.jsx";
 import "react-toastify/dist/ReactToastify.css";
+import {
+  selectIsLargeScreen,
+  selectIsSideBarOpened,
+} from "../redux/slices/sidebar/sidebarSelector.js";
+import {
+  ChevronRight,
+  ChevronLeft,
+  ShoppingBag,
+  Heart,
+  Search,
+  Zap,
+  Clock,
+  Award,
+} from "lucide-react";
+
+const exmapleProductsArray = [
+  {
+    name: "something",
+    description: "something",
+    actualPrice: 1000,
+    brand: "something",
+    stock: 87,
+    stockUnit: "kg",
+    admin: "19i9hoidiauf89w", // sellers id
+    images: [
+      {
+        publicId: "something",
+        url: "something",
+      },
+      {
+        publicId: "something",
+        url: "something",
+      },
+    ],
+    category: "something",
+    subCategory: "something",
+    reviews: [],
+    discountedPrice: 700,
+    discountPercentage: 30,
+    averageRating: 5, // 1 to 5
+    ratingsSum: 53,
+    locations: ["", "", ""],
+    status: "active", // active = available & in stock, inactive = not available, empty = out of stock
+    isFeatured: true, // boolean
+    reviewsCount: 78,
+  },
+  {
+    name: "something",
+    description: "something",
+    actualPrice: 1000,
+    brand: "something",
+    stock: 87,
+    stockUnit: "kg",
+    admin: "19i9hoidiauf89w", // sellers id
+    images: [
+      {
+        publicId: "something",
+        url: "something",
+      },
+      {
+        publicId: "something",
+        url: "something",
+      },
+    ],
+    category: "something",
+    subCategory: "something",
+    reviews: [],
+    discountedPrice: 700,
+    discountPercentage: 30,
+    averageRating: 5, // 1 to 5
+    ratingsSum: 53,
+    locations: ["", "", ""],
+    status: "active", // active = available & in stock, inactive = not available, empty = out of stock
+    isFeatured: true, // boolean
+    reviewsCount: 78,
+  },
+  {
+    name: "something",
+    description: "something",
+    actualPrice: 1000,
+    brand: "something",
+    stock: 87,
+    stockUnit: "kg",
+    admin: "19i9hoidiauf89w", // sellers id
+    images: [
+      {
+        publicId: "something",
+        url: "something",
+      },
+      {
+        publicId: "something",
+        url: "something",
+      },
+    ],
+    category: "something",
+    subCategory: "something",
+    reviews: [],
+    discountedPrice: 700,
+    discountPercentage: 30,
+    averageRating: 5, // 1 to 5
+    ratingsSum: 53,
+    locations: ["", "", ""],
+    status: "active", // active = available & in stock, inactive = not available, empty = out of stock
+    isFeatured: true, // boolean
+    reviewsCount: 78,
+  },
+];
 
 const Home = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const serverUrl = import.meta.env.VITE_SERVER_URL;
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
   const [showPopup, setShowPopup] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [isLargeScreen, setIsLargeScreen] = useState(false);
-  const dispatch = useAppDispatch();
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const [popupShownCount, setPopupShownCount] = useState(0);
   const popupTimerRef = useRef(null);
   const [newArrivals, setNewArrivals] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [topSellingProducts, setTopSellingProducts] = useState([]);
+  const isSideBarOpened = useAppSelector(selectIsSideBarOpened);
+  const isLargeScreen = useAppSelector(selectIsLargeScreen);
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isLoading, setIsLoading] = useState({
+    newArrivals: false,
+    featuredProducts: false,
+    topSellingProducts: false,
+    collections: false,
+  });
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [displayedProducts, setDisplayedProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState({});
 
-  // New state for hero section
-  const [currentHeroSlide, setCurrentHeroSlide] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  // Filter products based on active category
+  useEffect(() => {
+    switch (activeCategory) {
+      case "Featured":
+        setDisplayedProducts(featuredProducts);
+        break;
+      case "Best Selling":
+        setDisplayedProducts(topSellingProducts);
+        break;
+      case "New Arrivals":
+        setDisplayedProducts(newArrivals);
+        break;
+      default:
+        setDisplayedProducts(featuredProducts);
+    }
+  }, [activeCategory, featuredProducts, topSellingProducts, newArrivals]);
 
-  // Hero section data
-  const heroSlides = [
+  // Collection data
+  const collections = [
     {
+      title: "Summer Essentials",
+      description: "Beat the heat with our curated collection",
       image:
-        "https://images.unsplash.com/photo-1483985988355-763728e1935b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-      title: "Summer Collection 2025",
-      subtitle: "Discover the latest trends in fashion",
-      link: "/category/products/fashion",
+        "https://www.alldressedupwithnothingtodrink.com/wp-content/uploads/2021/06/SUMMER-ESSENTIALS.png",
     },
     {
+      title: "Sustainable Living",
+      description: "Eco-friendly products for conscious consumers",
       image:
-        "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2025&q=80",
-      title: "Tech Gadgets",
-      subtitle: "Explore innovative technology",
-      link: "/category/products/electronics",
+        "https://img.freepik.com/premium-photo/sustainable-living-concepts-images-eco_985067-1127.jpg",
     },
-    // Add more slides as needed
+    {
+      title: "Tech Innovations",
+      description: "The latest gadgets to upgrade your life",
+      image:
+        "https://process.innovation.ox.ac.uk/media/images/home_software_2019.jpg",
+    },
   ];
 
-  // Check screen size
-  useLayoutEffect(() => {
-    const checkScreenSize = () => {
-      setIsLargeScreen(window.innerWidth >= 1024); // 1024px is the lg breakpoint
-    };
-
-    checkScreenSize();
-    window.addEventListener("resize", checkScreenSize);
-
-    return () => {
-      window.removeEventListener("resize", checkScreenSize);
-    };
-  }, []);
-
-  // Sample product data
-  const product = {
-    _id: "67d199e1eb697e6ad6929aa3",
-    name: "Oriental Steel Salad",
-    description:
-      "The Horizontal mobile moratorium Hat offers reliable performance and shy design",
-    actualPrice: 464.39,
-    brand: "Hilpert - Franecki",
-    stock: 75,
-    stockUnit: "pieces",
-    admin: "67c05520634a0170758de266",
-    images: [
-      {
-        publicId: "bdab1ebb-c744-4b3f-a5e2-6dab0bb10a97",
-        url: "https://images.unsplash.com/photo-1493612276216-ee3925520721",
-      },
-      {
-        publicId: "d77e3f66-927a-4eff-9e2f-2de677538c31",
-        url: "https://loremflickr.com/1955/1936?lock=6604803886033999",
-      },
-      {
-        publicId: "d55f297b-2c08-4aad-ab2b-03d8b44c56ac",
-        url: "https://loremflickr.com/1854/1064?lock=5002704257188413",
-      },
-      {
-        publicId: "6ea86361-593b-40ec-bb67-7d079053932d",
-        url: "https://loremflickr.com/3234/2514?lock=7884969944064260",
-      },
-      {
-        publicId: "c20d3306-cedf-49b0-ae97-0f2593ddf392",
-        url: "https://picsum.photos/seed/oAqm2j/2270/252",
-      },
-    ],
-    category: "Music",
-    reviews: [],
-    averageRating: 4.5,
-    reviewsCount: 12,
-    discountedPrice: 399.99,
-    locations: ["india", "nepal", "australia", "america"],
-    status: "active",
-    isFeatured: false,
-    __v: 0,
-    createdAt: "2025-03-10T22:19:55.915Z",
-    updatedAt: "2025-03-10T22:19:55.915Z",
+  // Hero slider controls
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev === collections.length - 1 ? 0 : prev + 1));
   };
 
-  const handleWishlistToggle = () => {
-    setIsWishlisted(!isWishlisted);
-    // Here you would typically make an API call to update the wishlist status
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev === 0 ? collections.length - 1 : prev - 1));
   };
 
-  const handleProductClick = (clickedProduct) => {
-    setSelectedProduct(clickedProduct);
+  // Automatic slide change
+  useEffect(() => {
+    const timer = setInterval(() => {
+      nextSlide();
+    }, 5000);
 
-    if (isLargeScreen) {
-      setShowPopup(true);
-    } else {
-      navigate(`/product/${clickedProduct.originalId || product._id}`);
+    return () => clearInterval(timer);
+  }, [currentSlide]);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      await Promise.all([
+        fetchNewArrivals(),
+        fetchFeaturedProducts(),
+        fetchBestSellingProducts(),
+      ]);
+    } catch (error) {
+      console.error("Error loading products:", error);
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  const handleClosePopup = () => {
-    setShowPopup(false);
   };
 
   const getRandomInterval = () => {
@@ -187,24 +280,26 @@ const Home = () => {
     };
   }, [showLoginPopup]);
 
-  useEffect(() => {
-    const initializeData = async () => {
-      try {
-        // Fetch user data
-        const { buyer } = await checkBuyer();
-        if (buyer) {
-          dispatch(setUser(buyer));
-          // Fetch cart count after confirming user is logged in
-          const { cartCount } = await fetchCartCount();
-          dispatch(setCartCount(cartCount));
-        }
-      } catch (error) {
-        console.error("Error initializing data:", error);
-      }
-    };
+  const handleClosePopup = () => {
+    setShowPopup(false);
+  };
 
-    initializeData();
-  }, [dispatch]);
+  const handleProductClick = (clickedProduct) => {
+    if (isLargeScreen) {
+      setSelectedProduct(clickedProduct);
+      setShowPopup(true);
+    } else {
+      navigate(`/product/${clickedProduct._id}`);
+    }
+  };
+
+  useEffect(() => {
+    // Check for success message from location state
+    if (location.state?.successMessage) {
+      toast.success(location.state.successMessage);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const fetchNewArrivals = async () => {
     const req = await axios.get(
@@ -236,228 +331,492 @@ const Home = () => {
     setTopSellingProducts(req.data.data.products);
   };
 
-  // Loading state handler
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        await Promise.all([
-          fetchNewArrivals(),
-          fetchFeaturedProducts(),
-          fetchBestSellingProducts(),
-        ]);
-      } catch (error) {
-        console.error("Error loading products:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     loadData();
-  }, []);
-
-  const nextHeroSlide = () => {
-    setCurrentHeroSlide((prev) => (prev + 1) % heroSlides.length);
-  };
-
-  const prevHeroSlide = () => {
-    setCurrentHeroSlide(
-      (prev) => (prev - 1 + heroSlides.length) % heroSlides.length
-    );
-  };
+  }, [serverUrl]);
 
   useEffect(() => {
-    const timer = setInterval(nextHeroSlide, 5000); // Auto-advance slides
-    return () => clearInterval(timer);
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const handleViewAllClick = useCallback(() => {
+    if (displayedProducts === featuredProducts) {
+      navigate("/products/featured");
+    } else if (displayedProducts === topSellingProducts) {
+      navigate("/products/best-selling");
+    } else if (displayedProducts === newArrivals) {
+      navigate("/products/new-arrivals");
+    }
+  }, [displayedProducts]);
+
+  const handleWishlistToggle = () => {
+    setIsWishlisted(!isWishlisted);
+  };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <CategoriesBar />
+    <div
+      className={`min-h-screen bg-gray-50 dark:bg-gray-900 ${
+        isSideBarOpened && isLargeScreen ? "pl-80" : ""
+      }`}
+    >
+      {!isLoggedIn && (
+        <LoginPopup
+          isMobile={isMobile}
+          isOpen={showLoginPopup}
+          onClose={handleCloseLoginPopup}
+          key={Math.random()}
+        />
+      )}
+      {/* Hero Section with Asymmetrical Layout */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-teal-600 dark:bg-teal-800 opacity-10 z-0"></div>
 
-      {/* Hero Section with Banners */}
-      <Banners />
-
-      {/* Product Sections */}
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-12">
-        {/* Promotional Banners - Shop by Category */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div
-            className="relative overflow-hidden rounded-2xl group cursor-pointer bg-gradient-to-r from-purple-600 to-indigo-600"
-            onClick={() =>
-              navigate(
-                "/category/products/electronics?page=1&limit=12&sort=latest"
-              )
-            }
-          >
-            <div className="absolute inset-0 bg-black/10 z-10" />
-            <img
-              src="https://images.unsplash.com/photo-1593344484569-6fddb31245fd?ixlib=rb-4.0.3"
-              alt="Electronics Sale"
-              className="w-full h-80 object-cover mix-blend-overlay opacity-75"
-            />
-            <div className="absolute inset-0 z-20 flex flex-col justify-center p-8 text-white">
-              <span className="text-sm font-medium tracking-wider uppercase mb-2">
-                New Arrivals
-              </span>
-              <h3 className="text-3xl font-bold mb-2">Tech Essentials</h3>
-              <p className="text-lg mb-4 text-gray-100">
-                Up to 40% off on premium gadgets
+        {/* Main Hero Content */}
+        <div className="container mx-auto px-4 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 py-12 lg:py-20">
+            {/* Left Side - Text Content */}
+            <div className="flex flex-col justify-center z-10">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-800 dark:text-white mb-6">
+                Discover{" "}
+                <span className="text-teal-600 dark:text-teal-400">
+                  Extraordinary
+                </span>{" "}
+                Products
+              </h1>
+              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-lg">
+                Curated collections that inspire and elevate your everyday
+                experiences.
               </p>
-              <button className="bg-white/90 hover:bg-white text-gray-900 w-max px-6 py-2 rounded-lg font-medium transition-colors inline-flex items-center group">
-                Explore Now
-                <FontAwesomeIcon
-                  icon={faArrowRight}
-                  className="ml-2 group-hover:translate-x-1 transition-transform"
-                />
-              </button>
-            </div>
-          </div>
 
-          <div
-            className="relative overflow-hidden rounded-2xl group cursor-pointer bg-gradient-to-r from-teal-600 to-emerald-600"
-            onClick={() =>
-              navigate("/category/products/fashion?page=1&limit=12&sort=latest")
-            }
-          >
-            <div className="absolute inset-0 bg-black/10 z-10" />
-            <img
-              src="https://images.unsplash.com/photo-1445205170230-053b83016050?ixlib=rb-4.0.3"
-              alt="Fashion Sale"
-              className="w-full h-80 object-cover mix-blend-overlay opacity-75"
-            />
-            <div className="absolute inset-0 z-20 flex flex-col justify-center p-8 text-white">
-              <span className="text-sm font-medium tracking-wider uppercase mb-2">
-                Trending Now
-              </span>
-              <h3 className="text-3xl font-bold mb-2">Fashion Week</h3>
-              <p className="text-lg mb-4 text-gray-100">
-                New styles added daily
-              </p>
-              <button className="bg-white/90 hover:bg-white text-gray-900 w-max px-6 py-2 rounded-lg font-medium transition-colors inline-flex items-center group">
-                Shop Collection
-                <FontAwesomeIcon
-                  icon={faArrowRight}
-                  className="ml-2 group-hover:translate-x-1 transition-transform"
-                />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Features Section */}
-        <div className="bg-white rounded-2xl p-8 shadow-sm">
-          <h2 className="text-2xl font-bold text-gray-800 mb-8 text-center">
-            Why Shop With Us
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                icon: "🚚",
-                title: "Free Delivery",
-                description: "On orders above ₹500",
-                bgColor: "bg-blue-50",
-              },
-              {
-                icon: "🔒",
-                title: "Secure Payment",
-                description: "100% secure transactions",
-                bgColor: "bg-green-50",
-              },
-              {
-                icon: "↩️",
-                title: "Easy Returns",
-                description: "30-day return policy",
-                bgColor: "bg-yellow-50",
-              },
-              {
-                icon: "💬",
-                title: "24/7 Support",
-                description: "Dedicated support team",
-                bgColor: "bg-purple-50",
-              },
-            ].map((feature, index) => (
-              <div
-                key={index}
-                className={`${feature.bgColor} rounded-xl p-6 transition-transform hover:-translate-y-1 duration-300`}
-              >
-                <div className="text-4xl mb-4">{feature.icon}</div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600">{feature.description}</p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button className="px-8 py-3 bg-teal-600 text-white font-medium rounded-full hover:bg-teal-700 dark:hover:bg-teal-500 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-1 duration-300">
+                  Shop Now
+                </button>
+                <button className="px-8 py-3 border-2 border-teal-600 dark:border-teal-400 text-teal-600 dark:text-teal-400 font-medium rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors">
+                  Explore Collections
+                </button>
               </div>
-            ))}
+            </div>
+
+            {/* Right Side - Asymmetrical Image Slider */}
+            <div className="relative h-96 lg:h-auto overflow-hidden rounded-2xl shadow-2xl">
+              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-teal-600/30 dark:from-teal-800/30 to-transparent z-10"></div>
+
+              {collections.map((collection, index) => (
+                <div
+                  key={index}
+                  className={`absolute inset-0 transition-opacity duration-1000 ${
+                    index === currentSlide ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  <img
+                    src={collection.image}
+                    alt={collection.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-8 left-8 right-8 z-20">
+                    <h3 className="text-2xl font-bold text-white mb-2">
+                      {collection.title}
+                    </h3>
+                    <p className="text-white/90">{collection.description}</p>
+                  </div>
+                </div>
+              ))}
+
+              {/* Slider Controls */}
+              <div className="absolute bottom-8 right-8 flex space-x-2 z-20">
+                <button
+                  onClick={prevSlide}
+                  className="p-2 bg-white/20 backdrop-blur-md rounded-full hover:bg-white/40 transition-colors"
+                >
+                  <ChevronLeft size={20} className="text-white" />
+                </button>
+                <button
+                  onClick={nextSlide}
+                  className="p-2 bg-white/20 backdrop-blur-md rounded-full hover:bg-white/40 transition-colors"
+                >
+                  <ChevronRight size={20} className="text-white" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+      </section>
 
-        {isLoading ? (
-          // Skeleton loading state with improved animation
-          <div className="space-y-12">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-8 w-48 bg-gray-200 rounded mb-6" />
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  {[1, 2, 3, 4].map((j) => (
-                    <div key={j} className="space-y-4">
-                      <div className="aspect-square bg-gray-200 rounded-xl" />
-                      <div className="h-4 bg-gray-200 rounded w-3/4" />
-                      <div className="h-4 bg-gray-200 rounded w-1/2" />
-                    </div>
-                  ))}
+      {/* Unique Value Propositions - Horizontal Scrolling */}
+      <section className="py-10 bg-gradient-to-r from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/20">
+        <div className="container mx-auto px-4">
+          <div className="overflow-x-auto pb-6">
+            <div className="flex space-x-6 min-w-max">
+              <div className="flex items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md min-w-64">
+                <div className="p-3 bg-teal-100 dark:bg-teal-900/50 rounded-lg mr-4">
+                  <Zap size={24} className="text-teal-600 dark:text-teal-400" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-800 dark:text-white">
+                    Fast Delivery
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Get your order in 2-3 business days
+                  </p>
                 </div>
               </div>
-            ))}
+
+              <div className="flex items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md min-w-64">
+                <div className="p-3 bg-teal-100 dark:bg-teal-900/50 rounded-lg mr-4">
+                  <ShoppingBag
+                    size={24}
+                    className="text-teal-600 dark:text-teal-400"
+                  />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-800 dark:text-white">
+                    Free Shipping
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    On all orders over $50
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md min-w-64">
+                <div className="p-3 bg-teal-100 dark:bg-teal-900/50 rounded-lg mr-4">
+                  <Clock
+                    size={24}
+                    className="text-teal-600 dark:text-teal-400"
+                  />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-800 dark:text-white">
+                    24/7 Support
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Get help anytime you need
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md min-w-64">
+                <div className="p-3 bg-teal-100 dark:bg-teal-900/50 rounded-lg mr-4">
+                  <Award
+                    size={24}
+                    className="text-teal-600 dark:text-teal-400"
+                  />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-800 dark:text-white">
+                    Quality Guarantee
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    100% satisfaction or money back
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <>
-            {/* Product Rows with Improved Styling */}
-            {featuredProducts.length > 0 && (
-              <ProductRow
-                title="Featured Products"
-                products={featuredProducts}
-                viewAllLink="/products/featured?page=1&limit=12&sort=latest"
-                handleProductClick={handleProductClick}
-              />
-            )}
+        </div>
+      </section>
 
-            {topSellingProducts.length > 0 && (
-              <ProductRow
-                title="Top Selling Products"
-                products={topSellingProducts}
-                viewAllLink="/products/best-selling?page=1&limit=12&sort=latest"
-                handleProductClick={handleProductClick}
-              />
-            )}
-
-            {newArrivals.length > 0 && (
-              <ProductRow
-                title="New Arrivals"
-                products={newArrivals}
-                viewAllLink="/products/new-arrivals?page=1&limit=12&sort=latest"
-                handleProductClick={handleProductClick}
-              />
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Popup components */}
-      {showPopup && selectedProduct && isLargeScreen && (
+      {showPopup && (
         <ProductPopup
-          product={selectedProduct}
-          onClose={handleClosePopup}
           isWishlisted={isWishlisted}
+          onClose={handleClosePopup}
           onWishlistToggle={handleWishlistToggle}
+          product={selectedProduct}
+          key={selectedProduct._id}
         />
       )}
 
-      <LoginPopup
-        isOpen={showLoginPopup}
-        onClose={handleCloseLoginPopup}
-        isMobile={!isLargeScreen}
-      />
+      {/* Featured Products with Interactive Category Tabs */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col items-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-4">
+              Explore Products
+            </h2>
+            <div className="h-1 w-24 bg-teal-600 dark:bg-teal-400 rounded mb-8"></div>
 
-      <ToastContainer position="bottom-center" theme="colored" />
+            {/* Category Tabs */}
+            <div className="flex flex-wrap justify-center gap-4 mb-8">
+              {["Featured", "Best Selling", "New Arrivals"].map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setActiveCategory(category)}
+                  className={`px-6 py-2 rounded-full transition-all ${
+                    activeCategory === category
+                      ? "bg-teal-600 dark:bg-teal-500 text-white shadow-lg"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  {category.charAt(0).toUpperCase() + category.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Products Grid with Staggered Layout */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            {isLoading ? (
+              // Loading skeleton
+              [...Array(6)].map((_, index) => (
+                <div
+                  key={index}
+                  className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-md animate-pulse"
+                >
+                  <div className="h-64 bg-gray-200 dark:bg-gray-700"></div>
+                  <div className="p-6 space-y-4">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                    <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  </div>
+                </div>
+              ))
+            ) : displayedProducts.length > 0 ? (
+              displayedProducts.map((product, index) => (
+                <div
+                  key={product._id}
+                  className={`group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 ${
+                    index % 3 === 1 ? "transform lg:-translate-y-8" : ""
+                  }`}
+                >
+                  <div className="relative overflow-hidden">
+                    <img
+                      src={product.images[0]?.url || "/placeholder-image.jpg"}
+                      alt={product.name}
+                      className="w-full h-64 object-cover transition-transform duration-700 group-hover:scale-110"
+                      onClick={() => handleProductClick(product)}
+                    />
+                    <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
+
+                    {/* Quick Action Buttons */}
+                    <div className="absolute top-4 right-4 flex flex-col gap-2">
+                      <button
+                        className={`p-2 rounded-full bg-white/80 dark:bg-gray-700/80 hover:bg-white dark:hover:bg-gray-600 shadow-md transform translate-x-12 group-hover:translate-x-0 transition-transform duration-300`}
+                        onClick={handleWishlistToggle}
+                      >
+                        <Heart
+                          size={20}
+                          className={`${
+                            isWishlisted
+                              ? "text-red-500"
+                              : "text-gray-700 dark:text-gray-300"
+                          }`}
+                        />
+                      </button>
+                      <button
+                        onClick={() => handleProductClick(product)}
+                        className="p-2 rounded-full bg-white/80 dark:bg-gray-700/80 hover:bg-white dark:hover:bg-gray-600 shadow-md transform translate-x-12 group-hover:translate-x-0 transition-transform duration-300 delay-75"
+                      >
+                        <Search
+                          size={20}
+                          className="text-gray-700 dark:text-gray-300"
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    className="p-6"
+                    onClick={() => handleProductClick(product)}
+                  >
+                    <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">
+                      {product.name}
+                    </h3>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-teal-600 dark:text-teal-400 font-bold">
+                          ${product.discountedPrice || product.actualPrice}
+                        </p>
+                        {product.discountedPrice && (
+                          <span className="text-sm text-red-500 dark:text-red-400 font-medium">
+                            {product.discountPercentage}% OFF
+                          </span>
+                        )}
+                      </div>
+                      {product.discountedPrice && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 line-through">
+                          ${product.actualPrice}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => handleProductClick(product)}
+                      className="w-full py-3 bg-gray-100 dark:bg-gray-700 hover:bg-teal-600 dark:hover:bg-teal-600 hover:text-white dark:text-gray-200 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 group"
+                    >
+                      <span>View Product</span>
+                      <ShoppingBag
+                        size={18}
+                        className="transform group-hover:scale-110 transition-transform"
+                      />
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <p className="text-gray-500 dark:text-gray-400">
+                  No products found in this category.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* "View All" Button */}
+          <div className="mt-12 text-center" onClick={handleViewAllClick}>
+            <button className="px-8 py-3 border-2 border-teal-600 dark:border-teal-400 text-teal-600 dark:text-teal-400 font-medium rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors inline-flex items-center gap-2">
+              <span>View All Products</span>
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Diagonal Featured Collection */}
+      <section className="py-20 relative overflow-hidden">
+        <div className="absolute inset-0 bg-teal-600 dark:bg-teal-800 transform -skew-y-6 origin-top-left z-0"></div>
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+                Discover Our Exclusive Collection
+              </h2>
+              <p className="text-teal-50 mb-8 text-lg">
+                Handpicked items that represent the pinnacle of quality and
+                design. Limited editions that stand out from the crowd.
+              </p>
+              <button className="px-8 py-3 bg-white text-teal-600 font-medium rounded-full hover:bg-teal-50 transition-colors shadow-lg">
+                Explore Collection
+              </button>
+            </div>
+
+            <div className="relative">
+              <div className="relative z-10 rounded-2xl overflow-hidden shadow-2xl transform rotate-3 hover:rotate-0 transition-transform duration-500">
+                <img
+                  src="/api/placeholder/600/800"
+                  alt="Featured collection"
+                  className="w-full"
+                />
+              </div>
+              <div className="absolute -bottom-8 -left-8 w-64 h-64 bg-teal-300 dark:bg-teal-900 rounded-full opacity-30 blur-3xl"></div>
+              <div className="absolute -top-8 -right-8 w-48 h-48 bg-teal-800 dark:bg-teal-900 rounded-full opacity-20 blur-3xl"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Newsletter Subscription with Split Design */}
+      <section className="py-16 bg-gray-50 dark:bg-gray-900">
+        <div className="container mx-auto px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-5">
+              <div className="col-span-3 p-8 lg:p-12">
+                <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-4">
+                  Join Our Newsletter
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 mb-8">
+                  Subscribe to get special offers, free giveaways, and
+                  once-in-a-lifetime deals.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="email"
+                    placeholder="Your email address"
+                    className="flex-1 px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:focus:ring-teal-500 focus:border-transparent"
+                  />
+                  <button className="px-6 py-3 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 dark:hover:bg-teal-500 transition-colors shadow-md">
+                    Subscribe
+                  </button>
+                </div>
+
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-4">
+                  By subscribing, you agree to our Privacy Policy and consent to
+                  receive updates.
+                </p>
+              </div>
+
+              <div className="col-span-2 relative hidden lg:block">
+                <div className="absolute inset-0 bg-teal-600 dark:bg-teal-800"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-teal-600 to-teal-800 dark:from-teal-800 dark:to-teal-900 opacity-90"></div>
+                <div className="absolute inset-0 flex items-center justify-center p-12">
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold text-white mb-4">
+                      Stay in the Loop
+                    </h3>
+                    <p className="text-teal-100">
+                      Get early access to our exclusive deals and new arrivals.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Decorative elements */}
+                <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20">
+                  <div className="absolute -top-12 -left-12 w-40 h-40 rounded-full border-8 border-white"></div>
+                  <div className="absolute bottom-12 right-12 w-20 h-20 rounded-full border-4 border-white"></div>
+                  <div className="absolute top-1/2 left-1/4 w-16 h-16 rounded-full bg-white"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Carousel */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col items-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-4">
+              What Our Customers Say
+            </h2>
+            <div className="h-1 w-24 bg-teal-600 dark:bg-teal-400 rounded"></div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[1, 2, 3].map((index) => (
+              <div
+                key={index}
+                className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-900 flex items-center justify-center">
+                    <span className="text-teal-600 dark:text-teal-400 font-bold">
+                      {index}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-800 dark:text-white">
+                      Customer Name
+                    </h3>
+                    <div className="flex text-yellow-400">
+                      {[...Array(5)].map((_, i) => (
+                        <svg
+                          key={i}
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-gray-600 dark:text-gray-400 italic">
+                  "The quality and design of the products exceeded my
+                  expectations. Fast shipping and excellent customer service!"
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <ToastContainer position="bottom-center" autoClose={2000} />
     </div>
   );
 };

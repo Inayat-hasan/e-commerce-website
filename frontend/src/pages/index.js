@@ -14,6 +14,8 @@ import ResetPass from "./ResetPass";
 import ResetSuccess from "./ResetSuccess";
 import SearchProduct from "./SearchProduct";
 import Register from "./Register";
+import VerifyOtp from "./VerifyOtp";
+import Wishlist from "./Wishlist";
 
 export {
   Cart,
@@ -32,4 +34,6 @@ export {
   ResetPass,
   ResetSuccess,
   SearchProduct,
+  VerifyOtp,
+  Wishlist,
 };

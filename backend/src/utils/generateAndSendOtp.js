@@ -9,17 +9,20 @@ const generateAndSendOtp = async (user) => {
     specialChars: false,
     upperCaseAlphabets: false,
   });
+
   const otpExpiration = new Date(Date.now() + 5 * 60 * 1000);
+
   await otpModel.deleteMany({ user: user._id });
+
   const newOtp = await otpModel.create({
     user: user._id,
     emailOtp: otp,
     otpExpiration,
   });
+
   await sendEmail(user.email, otp);
-  return newOtp;
+
+  return { newOtp };
 };
-
-
 
 export { generateAndSendOtp };
