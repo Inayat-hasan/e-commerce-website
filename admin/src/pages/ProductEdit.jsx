@@ -326,11 +326,11 @@ const ProductEdit = () => {
 
     const formData = new FormData();
     formData.append("product", JSON.stringify(productDataToSubmit));
-    pendingAddImages.forEach(({ file }) => formData.append("newImages", file)); // Changed key to 'newImages'
+    pendingAddImages.forEach(({ file }) => formData.append("images", file));
     formData.append("imagesToDelete", JSON.stringify(pendingDeleteImages));
 
     try {
-      const res = await axios.put(
+      const res = await axios.post(
         // Changed to PUT for update
         `${serverUrl}/api/product/admin/edit-product/${productId}`, // Ensure productId is used
         formData,
@@ -340,13 +340,11 @@ const ProductEdit = () => {
         }
       );
 
-      if (res.data.success && res.data.data.product) {
+      if (res.data.data.productId) {
         toast.success("Product updated successfully!");
-        // Optionally refetch or update state more precisely
         setPendingAddImages([]);
         setPendingDeleteImages([]);
-        fetchProduct(); // Refetch to get the latest state including new image URLs
-        navigate(`/view-product/${res.data.data.product._id || productId}`, {
+        navigate(`/view-product/${res.data.data.productId}`, {
           state: { successMessage: "Product updated successfully" },
         });
       } else {
@@ -355,6 +353,7 @@ const ProductEdit = () => {
         );
       }
     } catch (error) {
+      console.log(error);
       toast.error(
         error.response?.data?.message || "An unexpected error occurred."
       );
@@ -625,7 +624,7 @@ const ProductEdit = () => {
               htmlFor="discountPercentage"
               labelClassName={labelClassName}
             >
-              <Input
+              <input
                 type="text"
                 name="discountPercentage"
                 value={calculateDiscountPercentage()}
