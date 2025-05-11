@@ -8,111 +8,128 @@ import {
   uploadMultipleFilesOnCloudinary,
   uploadOnCloudinary,
 } from "../utils/cloudinary.js";
-import { faker } from "@faker-js/faker";
 import { orderModel } from "../models/order.model.js";
 
 // admin controllers
 
 const createProduct = asyncHandler(async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      actualPrice,
-      stock,
-      stockUnit,
-      discountedPrice,
-      category,
-      brand,
-    } = req.body;
+    const product = JSON.parse(req.body.product);
+    const images = req.files?.images || [];
 
-    if (
-      !name ||
-      !description ||
-      !actualPrice ||
-      !stock ||
-      !stockUnit ||
-      !discountedPrice ||
-      !category ||
-      !brand
-    ) {
-      return res.status(400).json(new ApiError(400, "All fields are required"));
+    // Validate required fields
+    const requiredFields = [
+      "name",
+      "description",
+      "actualPrice",
+      "stock",
+      "stockUnit",
+      "category",
+      "brand",
+      "locations",
+    ];
+
+    const missingFields = requiredFields.filter((field) => !product[field]);
+    if (missingFields.length > 0) {
+      return res
+        .status(400)
+        .json(
+          new ApiError(
+            400,
+            `Missing required fields: ${missingFields.join(", ")}`
+          )
+        );
     }
 
-    const images = req.files?.images;
+    // Validate images
     if (!images || images.length === 0) {
-      return res.status(400).json(new ApiError(400, "Images are required"));
+      return res
+        .status(400)
+        .json(new ApiError(400, "At least one product image is required"));
     }
 
+    if (images.length > 6) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Maximum 6 images allowed"));
+    }
+
+    // Validate prices
+    const actualPrice = Number(product.actualPrice);
+    const discountedPrice = Number(product.discountedPrice);
+
+    if (isNaN(actualPrice) || actualPrice <= 0) {
+      return res.status(400).json(new ApiError(400, "Invalid actual price"));
+    }
+
+    if (discountedPrice && (isNaN(discountedPrice) || discountedPrice <= 0)) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Invalid discounted price"));
+    }
+
+    if (discountedPrice && discountedPrice > actualPrice) {
+      return res
+        .status(400)
+        .json(
+          new ApiError(
+            400,
+            "Discounted price cannot be greater than actual price"
+          )
+        );
+    }
+
+    // Upload images to Cloudinary
     const filePaths = images.map((image) => image.path);
     const uploadedImages = await uploadMultipleFilesOnCloudinary(filePaths);
+
+    if (!uploadedImages || uploadedImages.length === 0) {
+      return res.status(500).json(new ApiError(500, "Failed to upload images"));
+    }
 
     const formattedImages = uploadedImages.map((img) => ({
       publicId: img.public_id,
       url: img.url,
     }));
 
-    // Round the prices to whole numbers
-    const roundedActualPrice = Math.round(Number(actualPrice));
-    const roundedDiscountedPrice = Math.round(Number(discountedPrice));
-
-    const product = await productModel.create({
-      name,
-      description,
-      actualPrice: roundedActualPrice,
-      stock,
-      stockUnit,
-      discountedPrice: roundedDiscountedPrice,
-      category,
-      brand,
+    // Create product with rounded prices
+    const newProduct = await productModel.create({
+      name: product.name,
+      description: product.description,
+      actualPrice: Math.round(actualPrice),
+      stock: Number(product.stock),
+      stockUnit: product.stockUnit,
+      discountedPrice: discountedPrice
+        ? Math.round(discountedPrice)
+        : undefined,
+      category: product.category,
+      subCategory: product.subCategory,
+      brand: product.brand,
       admin: req.admin._id,
       images: formattedImages,
+      locations: product.locations,
+      status: product.status || "active",
+      isFeatured: product.isFeatured === "false",
     });
-    if (!product) {
+
+    if (!newProduct) {
       return res
         .status(500)
-        .json(new ApiError(500, "err in creating product!"));
-    } else {
-      return res.status(200).json(
-        new ApiResponse(200, "Product created!", {
-          success: true,
-          data: product,
-        })
-      );
+        .json(new ApiError(500, "Failed to create product"));
     }
-  } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json(new ApiError(500, "err in creating product!", { error }));
-  }
-});
 
-const uploadAndReturn = asyncHandler(async (req, res) => {
-  try {
-    const { productId } = req.params;
-    const image = req.file;
-    const product = await productModel.findById(productId);
-    if (!product) {
-      return res
-        .status(404)
-        .json(new ApiError(404, "Something went wrong in finding Product!"));
-    }
-    if (!image) {
-      return res.status(400).json(new ApiError(400, "Image is required!"));
-    }
-    const uploadResponse = await uploadOnCloudinary(image.path);
-    return res.status(200).json({
-      success: true,
-      data: {
-        image: { url: uploadResponse.url, publicId: uploadResponse.public_id },
-      },
-    });
+    return res.status(201).json(
+      new ApiResponse(201, "Product created successfully", {
+        productId: newProduct._id,
+      })
+    );
   } catch (error) {
-    console.log(error);
+    console.error("Error creating product:", error);
     return res
       .status(500)
-      .json(new ApiError(500, "err in editing product!", { error }));
+      .json(
+        new ApiError(500, "Error creating product", { error: error.message })
+      );
   }
 });
 
@@ -127,27 +144,27 @@ const deleteProduct = asyncHandler(async (req, res) => {
           new ApiError(404, "Something went wrong in finding Product!", {})
         );
     }
-    // const images = product.images;
-    // if (product.images && product.images.length > 0) {
-    //   const deletionPromises = product.images.map((image) =>
-    //     deleteImageFromCloudinary(image.publicId)
-    //   );
-    //   const results = await Promise.allSettled(deletionPromises);
+    const images = product.images;
+    if (product.images && product.images.length > 0) {
+      const deletionPromises = product.images.map((image) =>
+        deleteImageFromCloudinary(image.publicId)
+      );
+      const results = await Promise.allSettled(deletionPromises);
 
-    //   const failedDeletions = results.filter(
-    //     (result) =>
-    //       result.status === "rejected" ||
-    //       (result.value && result.value.statusCode !== 200)
-    //   );
+      const failedDeletions = results.filter(
+        (result) =>
+          result.status === "rejected" ||
+          (result.value && result.value.statusCode !== 200)
+      );
 
-    //   if (failedDeletions.length > 0) {
-    //     return res.status(500).json(
-    //       new ApiError(500, "Failed to delete some product images", {
-    //         failedDeletions,
-    //       })
-    //     );
-    //   }
-    // }
+      if (failedDeletions.length > 0) {
+        return res.status(500).json(
+          new ApiError(500, "Failed to delete some product images", {
+            failedDeletions,
+          })
+        );
+      }
+    }
 
     await productModel.deleteOne({ _id: productId });
 
@@ -186,91 +203,6 @@ const getAllProducts = asyncHandler(async (req, res) => {
   }
 });
 
-const generateProducts = asyncHandler(async (req, res) => {
-  try {
-    const numOfProducts = 60;
-
-    if (!numOfProducts || isNaN(numOfProducts) || numOfProducts <= 0) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Valid number of products is required"));
-    }
-
-    const products = [];
-    for (let i = 0; i < numOfProducts; i++) {
-      const product = {
-        name: faker.commerce.productName(),
-        description: faker.commerce.productDescription(),
-        actualPrice: faker.commerce.price(),
-        stock: faker.number.int({ min: 10, max: 100 }),
-        stockUnit: "pieces",
-        discountedPrice: faker.commerce.price(),
-        category: faker.commerce.department(),
-        brand: faker.company.name(),
-        admin: req.admin._id,
-        images: [
-          {
-            publicId: faker.string.uuid(),
-            url: faker.image.url(),
-          },
-          {
-            publicId: faker.string.uuid(),
-            url: faker.image.url(),
-          },
-          {
-            publicId: faker.string.uuid(),
-            url: faker.image.url(),
-          },
-          {
-            publicId: faker.string.uuid(),
-            url: faker.image.url(),
-          },
-          {
-            publicId: faker.string.uuid(),
-            url: faker.image.url(),
-          },
-        ],
-        status: "active",
-        isFeatured: "false",
-        locations: ["india", "pakistan", "bangladesh", "nepal"],
-      };
-      products.push(product);
-    }
-
-    const createdProducts = await productModel.insertMany(products);
-
-    return res.status(200).json(
-      new ApiResponse(200, "Random products generated!", {
-        success: true,
-        data: createdProducts,
-      })
-    );
-  } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json(new ApiError(500, "Error in generating products!", { error }));
-  }
-});
-
-const deleteAllProducts = asyncHandler(async (req, res) => {
-  try {
-    const deletionResponse = await productModel.deleteMany();
-    return res.status(200).json(
-      new ApiResponse(200, "All products deleted successfully", {
-        deletionResponse,
-      })
-    );
-  } catch (error) {
-    console.error("Error deleting all products:", error);
-    return res.status(500).json(
-      new ApiError(500, "Error deleting all products", {
-        error: error.message,
-      })
-    );
-  }
-});
-
 // buyer controllers
 
 const getProductDetails = asyncHandler(async (req, res) => {
@@ -289,7 +221,6 @@ const getProductDetails = asyncHandler(async (req, res) => {
       );
     }
   } catch (error) {
-    console.log(error);
     return res
       .status(500)
       .json(new ApiError(500, "Err in receiving product details!", { error }));
@@ -540,23 +471,34 @@ const getProductsAccordingToSearch = asyncHandler(async (req, res) => {
 
 const editProduct = asyncHandler(async (req, res) => {
   const { productId } = req.params;
-  const {
-    productName,
-    description,
-    category,
-    subCategory,
-    actualPrice,
-    discountedPrice,
-    stock,
-    stockUnit,
-    brand,
-    status,
-    isFeatured,
-    locations,
-    pendingAddImages,
-    pendingDeleteImages,
-    pendingReplaceImages, // in repalce images there is 2 objects in each array like this : [ [{oldimage},{newimage}] , [{oldimage},{newimage}] ]
-  } = req.body;
+  const updatedProductData = JSON.parse(req.body.product);
+  const imagesToDelete = JSON.parse(req.body.imagesToDelete || "[]");
+  const images = req.files?.images || [];
+
+  const requiredFields = [
+    "name",
+    "description",
+    "actualPrice",
+    "stock",
+    "stockUnit",
+    "category",
+    "brand",
+    "locations",
+  ];
+
+  const missingFields = requiredFields.filter(
+    (field) => !updatedProductData[field]
+  );
+  if (missingFields.length > 0) {
+    return res
+      .status(400)
+      .json(
+        new ApiError(
+          400,
+          `Missing required fields: ${missingFields.join(", ")}`
+        )
+      );
+  }
 
   try {
     const product = await productModel.findById(productId);
@@ -565,39 +507,41 @@ const editProduct = asyncHandler(async (req, res) => {
       return res.status(404).json(new ApiError(404, "Product not found!"));
     }
 
-    product.name = productName;
-    product.description = description;
-    product.category = category;
-    product.subCategory = subCategory;
-    product.brand = brand;
-    product.actualPrice = actualPrice;
-    product.discountedPrice = discountedPrice;
-    product.stock = stock;
-    product.stockUnit = stockUnit;
-    product.status = status;
-    product.isFeatured = isFeatured;
-    product.locations = locations;
+    // Update product fields
+    Object.assign(product, updatedProductData);
 
-    if (pendingAddImages.length > 0) {
-      pendingAddImages.forEach((image) => {
-        product.images.push(image);
-      });
-    }
-    if (pendingDeleteImages.length > 0) {
-      for (const image of pendingDeleteImages) {
-        // await deleteImageFromCloudinary(image.publicId);
-        product.images = product.images.filter(
-          (img) => img.publicId !== image.publicId
-        );
+    // Handle new image uploads
+    if (images.length > 0) {
+      const filePaths = images.map((img) => img.path);
+      const uploadedImages = await uploadMultipleFilesOnCloudinary(filePaths);
+      if (!uploadedImages || uploadedImages.length === 0) {
+        return res
+          .status(500)
+          .json(new ApiError(500, "Failed to upload images"));
       }
+
+      const formattedImages = uploadedImages.map((img) => ({
+        publicId: img.public_id,
+        url: img.url,
+      }));
+
+      product.images.push(...formattedImages);
     }
 
-    if (pendingReplaceImages.length > 0) {
-      for (const image of pendingReplaceImages) {
-        product.images = product.images.map((img) =>
-          img.publicId === image[0].publicId ? image[1] : img
+    // Handle image deletions with error handling for each image
+    if (imagesToDelete.length > 0) {
+      for (const publicId of imagesToDelete) {
+        try {
+          await deleteImageFromCloudinary(publicId);
+        } catch (deleteError) {
+          console.error(`Error deleting image ${publicId}:`, deleteError);
+          // Continue with the other operations even if one deletion fails
+        }
+
+        // Remove from product images array regardless of deletion success
+        product.images = product.images.filter(
+          (img) => img.publicId !== publicId
         );
-        // await deleteImageFromCloudinary(image[0].publicId);
       }
     }
 
@@ -605,40 +549,14 @@ const editProduct = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, "Product updated!", { product }));
+      .json(
+        new ApiResponse(200, "Product updated!", { productId: product._id })
+      );
   } catch (err) {
     console.log(err);
     return res
       .status(500)
-      .json(new ApiError(500, "err in updating product!", { error: err }));
-  }
-});
-
-const userBackout = asyncHandler(async (req, res) => {
-  const { productId } = req.params;
-  const { pendingAddImages, pendingReplaceImages } = req.body;
-  if (!productId) {
-    return res.status(400).json(new ApiError(400, "Something went wrong!"));
-  }
-  try {
-    const product = await productModel.findById(productId);
-    if (pendingAddImages.length > 0) {
-      await Promise.all(
-        pendingAddImages.map(async (image) => {
-          await deleteImageFromCloudinary(image.publicId);
-        })
-      );
-    }
-    if (pendingReplaceImages.length > 0) {
-      await Promise.all(
-        pendingReplaceImages.map(async (image) => {
-          await deleteImageFromCloudinary(image[1].publicId);
-        })
-      );
-    }
-    return res.status(200).json(new ApiResponse(200, "Done"));
-  } catch (error) {
-    return res.status(500).json(new ApiError(500, "Error", { error }));
+      .json(new ApiError(500, "Error in updating product!", { error: err }));
   }
 });
 
@@ -925,16 +843,12 @@ export {
   createProduct,
   deleteProduct,
   getAllProducts,
-  generateProducts,
-  deleteAllProducts,
   // buyer controllers
   getProductDetails,
   getProductsAccordingToCategory,
   getProductsAccordingToBrand,
   getProductsAccordingToSearch,
   editProduct,
-  uploadAndReturn,
-  userBackout,
   getFeaturedProducts,
   getLatestProducts,
   getBestSellingProducts,

@@ -1,627 +1,612 @@
-import React, { useEffect, useRef, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faAngleDown,
-  faAngleRight,
-  faBars,
-  faBell,
-  faCartShopping,
-  faMoon,
-  faSortDown,
-  faUserCircle,
-  faXmark,
-} from "@fortawesome/free-solid-svg-icons";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "axios";
-import { useAppDispatch, useAppSelector } from "../redux/hooks";
-import { selectIsOpen } from "../redux/reducers/sidebar/sidebarSelector";
-import { toggleSidebar } from "../redux/reducers/sidebar/sidebarReducer";
+import { useAppDispatch, useAppSelector } from "../redux/hooks.js";
+import {
+  selectIsLoggedIn,
+  selectUser,
+} from "../redux/reducers/authentication/authSelector.js";
+import { setUser } from "../redux/reducers/authentication/authReducer.js";
+import {
+  selectIsLargeScreen,
+  selectIsSideBarOpened,
+} from "../redux/reducers/sidebar/sidebarSelector.js";
+import {
+  closeSidebar,
+  openSidebar,
+  setIsLargeScreen,
+} from "../redux/reducers/sidebar/sidebarReducer.js";
+import checkUser from "../utils/checkUser.js";
+import handleLogoutUtil from "../utils/handleLogout.js";
+import { toast } from "react-toastify";
+import {
+  ShoppingBag,
+  User,
+  Menu,
+  X,
+  Sun,
+  Moon,
+  Home,
+  LogOut,
+  Clipboard,
+  UserPlus,
+} from "lucide-react";
+import Sidebar from "./Sidebar.jsx";
 
 const Header = () => {
-  const [isUserOpen, setIsUserOpen] = useState(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const isSideBarOpened = useAppSelector(selectIsOpen);
-  const userRef = useRef(null);
-  const notificationRef = useRef(null);
-  const [expandedItems, setExpandedItems] = useState({
-    homeBannerSlides: false,
-    products: false,
-    homeBanners: false,
-    homeSideBanners: false,
-    homeBottomBanners: false,
-    category: false,
-  });
-
-  const getAdminDetails = async () => {
-    try {
-      const req = await axios.get(
-        `${import.meta.env.VITE_SERVER_URL}/api/admin/profile`,
-        {
-          withCredentials: true,
-        }
-      );
-      if (req.status === 200) {
-        console.log(req.data);
-      } else {
-        navigate("/admin/login");
-      }
-    } catch (error) {
-      console.log(error);
-      navigate("/admin/login");
-    }
-  };
-
   useEffect(() => {
-    if (isUserOpen || isNotificationOpen) {
-      document.body.classList.add("overflow-hidden");
-    } else {
-      document.body.classList.remove("overflow-hidden");
-    }
+    const initializeData = async () => {
+      try {
+        const { admin } = await checkUser();
+        if (admin) {
+          dispatch(setUser(admin));
+        } else {
+          dispatch(setUser(null));
+        }
+      } catch (error) {
+        dispatch(setUser(null));
+      }
+    };
+
+    initializeData();
+  }, [dispatch]);
+  const sidebarRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [showLoginDropdown, setShowLoginDropdown] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const navigate = useNavigate();
+  const user = useAppSelector(selectUser);
+  const isLoggedIn = useAppSelector(selectIsLoggedIn);
+  const isSideBarOpened = useAppSelector(selectIsSideBarOpened);
+  const isLargeScreen = useAppSelector(selectIsLargeScreen);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Handle window resize
+  useEffect(() => {
+    let resizeTimeout;
+    const handleResize = () => {
+      const isLarge = window.innerWidth >= 1024;
+
+      // Update screen size state
+      if (isLarge !== isLargeScreen) {
+        dispatch(setIsLargeScreen(isLarge));
+
+        // Only close sidebar when transitioning from large to small screen
+        // and don't close it if we're already on a small screen
+        if (!isLarge && isLargeScreen && isSideBarOpened) {
+          dispatch(closeSidebar());
+        }
+      }
+    };
+
+    // Use a debounced version of resize handler to prevent multiple rapid calls
+    const debouncedResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(handleResize, 100);
+    };
+
+    handleResize();
+    window.addEventListener("resize", debouncedResize);
 
     return () => {
-      document.body.classList.remove("overflow-hidden");
+      window.removeEventListener("resize", debouncedResize);
+      clearTimeout(resizeTimeout);
     };
-  }, [isUserOpen, isNotificationOpen]);
+  }, [isSideBarOpened, isLargeScreen, dispatch]);
 
+  // Handle scroll for sticky search bar and header shadow
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      // Only show sticky search if not large screen and scrolled down enough
+      setIsScrolled(scrollTop > 0);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isLargeScreen]);
+
+  // Handle clicks outside dropdowns and sidebar
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Skip if event was prevented by a child component
+      if (event.defaultPrevented) {
+        return;
+      }
+
+      // For profile/login dropdown
+      const isDropdownButton = event.target.closest(
+        'button[aria-label="More options"]'
+      );
       if (
-        (userRef.current && !userRef.current.contains(event.target)) ||
-        (notificationRef.current &&
-          !notificationRef.current.contains(event.target))
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        !isDropdownButton &&
+        (showProfileDropdown || showLoginDropdown)
       ) {
-        setIsUserOpen(false);
-        setIsNotificationOpen(false);
+        setShowProfileDropdown(false);
+        setShowLoginDropdown(false);
+      }
+
+      // Make sure we're not clicking a menu toggle button
+      const isMenuButton = event.target.closest('button[aria-label="Menu"]');
+
+      // Close sidebar when clicking outside on small screens
+      if (
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target) &&
+        !isMenuButton &&
+        !isLargeScreen && // Only close on small screens
+        isSideBarOpened
+      ) {
+        dispatch(closeSidebar());
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    // Only add event listener if needed
+    if (isSideBarOpened || showProfileDropdown || showLoginDropdown) {
+      // Add with a slight delay to prevent immediate triggering
+      const timer = setTimeout(() => {
+        // Use mousedown instead of click to catch events earlier in the cycle
+        document.addEventListener("mousedown", handleClickOutside);
+      }, 100);
+
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
+  }, [
+    isSideBarOpened,
+    showProfileDropdown,
+    showLoginDropdown,
+    isLargeScreen,
+    dispatch,
+  ]);
+
+  // Control body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (isSideBarOpened && !isLargeScreen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [isSideBarOpened, isLargeScreen]);
+
+  const toggleDarkMode = () => {
+    if (isDarkMode === true) {
+      setIsDarkMode(false);
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    } else {
+      setIsDarkMode(true);
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    }
+  };
+
+  // Apply dark mode
+  useEffect(() => {
+    const storedTheme = localStorage.getItem("theme");
+    if (storedTheme === "dark") {
+      setIsDarkMode(true);
+      document.documentElement.classList.add("dark");
+    } else {
+      setIsDarkMode(false);
+      document.documentElement.classList.remove("dark");
+    }
   }, []);
 
-  const toggleExpand = (item) => {
-    setExpandedItems((prevState) => ({
-      homeBannerSlides:
-        item === "homeBannerSlides" ? !prevState.homeBannerSlides : false,
-      products: item === "products" ? !prevState.products : false,
-      homeBanners: item === "homeBanners" ? !prevState.homeBanners : false,
-      homeSideBanners:
-        item === "homeSideBanners" ? !prevState.homeSideBanners : false,
-      homeBottomBanners:
-        item === "homeBottomBanners" ? !prevState.homeBottomBanners : false,
-      category: item === "category" ? !prevState.category : false,
-    }));
+  const toggleProfileDropdown = () => {
+    // Close login dropdown if open
+    if (showLoginDropdown) {
+      setShowLoginDropdown(false);
+    }
+    // Toggle profile dropdown
+    setShowProfileDropdown((prevState) => !prevState);
+  };
+
+  const toggleLoginDropdown = () => {
+    setShowLoginDropdown(!showLoginDropdown);
+    setShowProfileDropdown(false);
+  };
+
+  // Show logout confirmation modal
+  const showLogoutConfirmation = () => {
+    // Close dropdown menus
+    setShowProfileDropdown(false);
+    setShowLoginDropdown(false);
+    setShowLogoutModal(true);
+  };
+
+  // Handle the actual logout process
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+
+      // Close sidebar if open
+      if (isSideBarOpened) {
+        dispatch(closeSidebar());
+      }
+
+      // Use the handleLogout utility
+      await handleLogoutUtil(dispatch, navigate);
+    } catch (error) {
+      toast.error("Failed to log out");
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
+    }
+  };
+
+  // Handle small screen menu toggle specifically
+  const handleMenuToggle = () => {
+    // Use explicit actions instead of toggle for more reliable control
+    if (isSideBarOpened) {
+      setTimeout(() => dispatch(closeSidebar()), 10);
+    } else {
+      setTimeout(() => dispatch(openSidebar()), 10);
+    }
   };
 
   return (
-    <header className="flex flex-col items-center sm:h-28 md:h-32 justify-evenly text-white max-w-full lg:h-16 lg:border-b-4 lg:sticky lg:top-0 lg:w-full lg:bg-white xl:sticky xl:h-16 xl:w-full xl:top-0 z-50">
-      <div className="flex flex-row w-full sm:h-11 h-12 items-center justify-around sm:border-b-2 md:border-b-2">
-        {/* Logo */}
-        <Link
-          to="/admin/dashboard"
-          className={`${
-            isNotificationOpen || isUserOpen ? "pointer-events-none" : ""
-          }`}
-        >
-          <div
-            className={`flex flex-row font-serif text-2xl justify-center items-center bg-gradient-to-r from-lime-950 to-gray-800 p-1 rounded text-[#D0CEBA] hover:cursor-pointer`}
-          >
-            <p>Lushkart</p>
-            <FontAwesomeIcon
-              aria-hidden="true"
-              icon={faCartShopping}
-              className=""
-            ></FontAwesomeIcon>
+    <>
+      <header
+        className={`w-full transition-all duration-300 sticky top-0 left-0 right-0
+          ${isScrolled ? "shadow-lg" : ""}
+          z-50 bg-white dark:bg-gray-900`}
+      >
+        <div className="max-w-8xl mx-auto">
+          {/* Main Header Row */}
+          <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 lg:py-4 relative">
+            {/* Left Section: Menu & Logo */}
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <button
+                className={`p-1.5 sm:p-2 rounded-full  transition-colors hover:bg-gray-100 dark:hover:bg-gray-800`}
+                onClick={handleMenuToggle}
+                aria-label="Menu"
+              >
+                {isSideBarOpened ? (
+                  <X size={20} className={`text-gray-800 dark:text-white`} />
+                ) : (
+                  <Menu size={20} className={`text-gray-800 dark:text-white`} />
+                )}
+              </button>
+
+              <Link to="/" className="flex items-center">
+                <div
+                  className={`relative flex items-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg overflow-hidden group bg-teal-600 dark:bg-teal-900`}
+                >
+                  <div className="absolute -inset-1 bg-gradient-to-r from-teal-600 to-emerald-600 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-300"></div>
+                  <div className="relative flex items-center space-x-2">
+                    <span className="font-serif text-xl sm:text-2xl font-bold text-white">
+                      Lushkart
+                    </span>
+                    <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                  </div>
+                </div>
+              </Link>
+            </div>
+
+            {/* Right: Navigation Icons */}
+            <div className="flex items-center">
+              {/* Small screen more compact layout */}
+              <div className="sm:hidden relative ml-1" ref={dropdownRef}>
+                <button
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleProfileDropdown();
+                  }}
+                  className={`p-1.5 rounded-full transition-colors dark:hover:bg-gray-800 hover:bg-gray-100`}
+                  aria-label="More options"
+                >
+                  <User size={18} className={`dark:text-white text-gray-700`} />
+                </button>
+
+                {/* Mobile menu dropdown */}
+                {showProfileDropdown && (
+                  <div
+                    className={`absolute right-0 mt-2 w-48 rounded-xl shadow-lg py-1 z-50 dark:bg-gray-800 dark:border-gray-700 bg-white border border-gray-100`}
+                  >
+                    <div
+                      className={`cursor-pointer block px-4 py-2 text-sm dark:text-gray-300 dark:hover:bg-gray-700 text-gray-700 hover:bg-gray-100`}
+                      onMouseDown={(e) => {
+                        // Use onMouseDown instead of onClick to ensure it runs before any blur events
+                        e.preventDefault();
+                        navigate("/");
+                      }}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Home
+                          size={16}
+                          className={`dark:text-teal-400 text-teal-600`}
+                        />
+                        <span>Dashboard</span>
+                      </div>
+                    </div>
+                    {isLoggedIn ? (
+                      <>
+                        <div
+                          className={`cursor-pointer block px-4 py-2 text-sm dark:text-gray-300 dark:hover:bg-gray-700 text-gray-700 hover:bg-gray-100`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            navigate("/orders");
+                          }}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <Clipboard
+                              size={16}
+                              className={`dark:text-teal-400 text-teal-600`}
+                            />
+                            <span>Orders</span>
+                          </div>
+                        </div>
+                        <div
+                          className={`cursor-pointer block px-4 py-2 text-sm dark:text-gray-300 dark:hover:bg-gray-700 text-gray-700 hover:bg-gray-100`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            showLogoutConfirmation();
+                          }}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <LogOut size={16} className="text-red-500" />
+                            <span>Logout</span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          className={`cursor-pointer block px-4 py-2 text-sm dark:text-gray-300 dark:hover:bg-gray-700 text-gray-700 hover:bg-gray-100`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            navigate("/login");
+                          }}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <User
+                              size={16}
+                              className={`dark:text-teal-400 text-teal-600`}
+                            />
+                            <span>Login</span>
+                          </div>
+                        </div>
+                        <div
+                          className={`cursor-pointer block px-4 py-2 text-sm dark:text-gray-300 dark:hover:bg-gray-700 text-gray-700 hover:bg-gray-100`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            navigate("/register");
+                          }}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <UserPlus
+                              size={16}
+                              className={`dark:text-teal-400 text-teal-600`}
+                            />
+                            <span>Register</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Regular buttons for larger screens */}
+              <Link to="/" className="hidden sm:block">
+                <button
+                  className={`p-2 rounded-full dark:hover:bg-gray-800 hover:bg-gray-100 transition-colors`}
+                  aria-label="Home"
+                >
+                  <Home size={22} className="dark:text-white text-gray-700" />
+                </button>
+              </Link>
+              <div className="relative hidden sm:block" ref={dropdownRef}>
+                {isLoggedIn ? (
+                  <button
+                    onClick={toggleProfileDropdown}
+                    className={`p-2 rounded-full dark:hover:bg-gray-800 hover:bg-gray-100  transition-colors flex items-center`}
+                    aria-label="User profile"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-teal-600 flex items-center justify-center text-white text-sm font-medium">
+                      {user?.fullName?.[0]?.toUpperCase() ||
+                        user?.email?.[0]?.toUpperCase() ||
+                        "U"}
+                    </div>
+                  </button>
+                ) : (
+                  <button
+                    onClick={toggleLoginDropdown}
+                    className={`p-2 rounded-full dark:hover:bg-gray-800 hover:bg-gray-100 transition-colors`}
+                    aria-label="Login"
+                  >
+                    <User size={22} className="dark:text-white text-gray-700" />
+                  </button>
+                )}
+
+                {/* Profile Dropdown for larger screens */}
+                {showProfileDropdown && isLoggedIn && (
+                  <div
+                    className={`absolute right-0 mt-2 w-60 rounded-xl shadow-lg py-2 z-50  dark:bg-gray-800 dark:border-gray-700 bg-white border border-gray-100`}
+                  >
+                    <div
+                      className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700`}
+                    >
+                      <div
+                        className={`font-medium text-gray-800 dark:text-white`}
+                      >
+                        {user?.fullName || "User"}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {user?.email || "user@example.com"}
+                      </div>
+                    </div>
+                    <Link to="/orders">
+                      <button
+                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-3 dark:text-gray-300 dark:hover:bg-gray-700 text-gray-700 hover:bg-gray-100`}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent event from bubbling up
+                          const destination = "/orders";
+                          navigate(destination);
+                          setTimeout(() => {
+                            setShowProfileDropdown(false);
+                          }, 50);
+                        }}
+                      >
+                        <Clipboard
+                          size={16}
+                          className={`dark:text-teal-400 text-teal-600`}
+                        />
+                        <span>Orders</span>
+                      </button>
+                    </Link>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        showLogoutConfirmation();
+                        setTimeout(() => {
+                          setShowProfileDropdown(false);
+                        }, 50);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-3 dark:text-gray-300 dark:hover:bg-gray-700 text-gray-700 hover:bg-gray-100`}
+                    >
+                      <LogOut size={16} className="text-red-500" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Login Dropdown for larger screens */}
+                {showLoginDropdown && !isLoggedIn && (
+                  <div
+                    className={`absolute right-0 mt-2 w-52 rounded-xl shadow-lg py-2 z-50  dark:bg-gray-800 dark:border-gray-700 bg-white border border-gray-100`}
+                  >
+                    <Link to="/login">
+                      <button
+                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-3 dark:text-gray-300 dark:hover:bg-gray-700 text-gray-700 hover:bg-gray-100`}
+                      >
+                        <User
+                          size={16}
+                          className={`dark:text-teal-400 text-teal-600`}
+                        />
+                        <span>Login</span>
+                      </button>
+                    </Link>
+                    <Link to="/register">
+                      <button
+                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-3 dark:text-gray-300 dark:hover:bg-gray-700 text-gray-700 hover:bg-gray-100`}
+                      >
+                        <UserPlus
+                          size={16}
+                          className={`dark:text-teal-400 text-teal-600`}
+                        />
+                        <span>Register</span>
+                      </button>
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Ensure proper spacing on all devices */}
+              <div className="flex items-center ml-1 sm:ml-2">
+                {/* Dark/Light Mode Toggle (shown on medium+ screens) */}
+                <button
+                  onClick={toggleDarkMode}
+                  className={`p-1.5 sm:p-2 rounded-full dark:hover:bg-gray-800 hover:bg-gray-100 transition-colors ml-1`}
+                  aria-label={
+                    isDarkMode ? "Switch to light mode" : "Switch to dark mode"
+                  }
+                >
+                  {isDarkMode ? (
+                    <Sun size={20} className="text-yellow-300" />
+                  ) : (
+                    <Moon size={20} className="text-gray-700" />
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
-        </Link>
-
-        {/* Bars */}
-        <button
-          className={`text-teal-900 font-semibold text-4xl justify-self-center self-center text-center pb-2 ${
-            isNotificationOpen || isUserOpen ? "pointer-events-none" : ""
-          }`}
-          onClick={() => {
-            dispatch(toggleSidebar());
-          }}
-        >
-          {!isSideBarOpened ? (
-            <FontAwesomeIcon icon={faBars} aria-hidden="true"></FontAwesomeIcon>
-          ) : (
-            <FontAwesomeIcon
-              icon={faXmark}
-              aria-hidden="true"
-            ></FontAwesomeIcon>
-          )}
-        </button>
-
-        {/* buttons */}
-        <div
-          className={`flex flex-row items-center gap-2 justify-center ${
-            isNotificationOpen || isUserOpen ? "pointer-events-none" : ""
-          }`}
-        >
-          <button
-            className={`flex flex-row bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl`}
-            onClick={() => setIsUserOpen((prev) => !prev)}
-          >
-            <FontAwesomeIcon icon={faMoon} aria-hidden="true"></FontAwesomeIcon>
-          </button>
-
-          <button
-            className={`flex flex-row bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl`}
-            onClick={() => setIsNotificationOpen((prev) => !prev)}
-          >
-            <FontAwesomeIcon icon={faBell} aria-hidden="true"></FontAwesomeIcon>
-          </button>
-          <button
-            className={`flex flex-row bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl`}
-            onClick={() => setIsUserOpen((prev) => !prev)}
-          >
-            <FontAwesomeIcon
-              icon={faUserCircle}
-              aria-hidden="true"
-            ></FontAwesomeIcon>
-          </button>
         </div>
-      </div>
+      </header>
 
-      {/* if side bar is open */}
-      {isSideBarOpened && (
-        <div className="fixed lg:top-16 md:top-0 sm:top-0 left-0 max-h-screen h-screen lg:w-72 shadow-lg sm:z-50 md:z-50 overflow-y-scroll bg-teal-900 text-white px-2 lg:block">
-          {/* Dashboard */}
-          <button
-            onClick={() => navigate("/admin/dashboard")}
-            className="cursor-pointer w-[100%] lg:h-10 flex justify-start gap-1 hover:bg-teal-800 items-center rounded-xl px-3 text-lg mt-1"
-          >
-            <svg
-              stroke="currentColor"
-              fill="currentColor"
-              strokeWidth="0"
-              viewBox="0 0 24 24"
-              height="1em"
-              width="1em"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M4 11h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1zm10 0h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1zM4 21h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1zm13 0c2.206 0 4-1.794 4-4s-1.794-4-4-4-4 1.794-4 4 1.794 4 4 4z"></path>
-            </svg>
-            <span>Dashboard</span>
-          </button>
-          {/* products */}
-          <button
-            onClick={() => toggleExpand("products")}
-            className="cursor-pointer w-[100%] lg:h-10 flex justify-between gap-1 hover:bg-teal-800 items-center rounded-xl px-3 text-lg mt-1"
-          >
-            <div className="flex items-center justify-start">
-              <svg
-                stroke="currentColor"
-                fill="currentColor"
-                strokeWidth="0"
-                viewBox="0 0 384 512"
-                fontSize="small"
-                height="2em"
-                width="1em"
-                xmlns="http://www.w3.org/2000/svg"
-                className={`${
-                  expandedItems.products ? "text-teal-600" : "text-white"
-                }`}
-              >
-                <path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm121.2 231.8l-143 141.8c-4.7 4.7-12.3 4.6-17-.1l-82.6-83.3c-4.7-4.7-4.6-12.3.1-17L99.1 285c4.7-4.7 12.3-4.6 17 .1l46 46.4 106-105.2c4.7-4.7 12.3-4.6 17 .1l28.2 28.4c4.7 4.8 4.6 12.3-.1 17z"></path>
-              </svg>
-              <span>Products</span>
-            </div>
-            <FontAwesomeIcon
-              aria-hidden="true"
-              icon={expandedItems.products ? faAngleDown : faAngleRight}
-            ></FontAwesomeIcon>
-          </button>
-          {expandedItems.products && (
-            <div className="flex flex-col pl-1 border-l-2 border-teal-700 space-y-2 w-[90%] self-end items-start justify-center">
+      {/* Main Layout with Sidebar */}
+      <Sidebar
+        isDarkMode={isDarkMode}
+        showLogoutConfirmation={showLogoutConfirmation}
+        sidebarRef={sidebarRef}
+        toggleDarkMode={toggleDarkMode}
+      />
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
+              Confirm Logout
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Are you sure you want to logout?
+            </p>
+            <div className="flex justify-end gap-4">
               <button
-                onClick={() => navigate("/admin/product-list")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition"
+                disabled={isLoggingOut}
               >
-                Product List
+                Cancel
               </button>
               <button
-                onClick={() => navigate("/admin/add-product")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition flex items-center justify-center"
+                disabled={isLoggingOut}
               >
-                Product Upload
-              </button>
-              <button
-                onClick={() => navigate("/admin/product-ram")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Add Product RAMS
-              </button>
-              <button
-                onClick={() => navigate("/admin/product-weight")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Add Product WEIGHT
-              </button>
-              <button
-                onClick={() => navigate("/admin/product-size")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Add Product SIZE
+                {isLoggingOut ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Logging out...
+                  </>
+                ) : (
+                  "Logout"
+                )}
               </button>
             </div>
-          )}
-          {/* orders */}
-          <button
-            onClick={() => navigate("/admin/orders")}
-            className="cursor-pointer w-[100%] lg:h-10 flex justify-start gap-1 hover:bg-teal-800 items-center rounded-xl px-3 text-lg mt-1"
-          >
-            <svg
-              stroke="currentColor"
-              fill="currentColor"
-              strokeWidth="0"
-              viewBox="0 0 384 512"
-              fontSize="small"
-              height="2em"
-              width="1em"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm121.2 231.8l-143 141.8c-4.7 4.7-12.3 4.6-17-.1l-82.6-83.3c-4.7-4.7-4.6-12.3.1-17L99.1 285c4.7-4.7 12.3-4.6 17 .1l46 46.4 106-105.2c4.7-4.7 12.3-4.6 17 .1l28.2 28.4c4.7 4.8 4.6 12.3-.1 17z"></path>
-            </svg>
-            <span>Orders</span>
-          </button>
-          {/* category */}
-          <button
-            onClick={() => toggleExpand("category")}
-            className="cursor-pointer w-[100%] lg:h-10 flex justify-between gap-1 hover:bg-teal-800 items-center rounded-xl px-3 text-lg mt-1"
-          >
-            <div className="flex items-center justify-start">
-              <svg
-                stroke="currentColor"
-                fill="currentColor"
-                strokeWidth="0"
-                viewBox="0 0 24 24"
-                height="1em"
-                width="1em"
-                xmlns="http://www.w3.org/2000/svg"
-                className={`${
-                  expandedItems.category ? "text-teal-600" : "text-white"
-                }`}
-              >
-                <path d="M4 11h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1zm10 0h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1zM4 21h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1zm13 0c2.206 0 4-1.794 4-4s-1.794-4-4-4-4 1.794-4 4 1.794 4 4 4z"></path>
-              </svg>
-              <span>Category</span>
-            </div>
-            <FontAwesomeIcon
-              aria-hidden="true"
-              icon={expandedItems.category ? faAngleDown : faAngleRight}
-            ></FontAwesomeIcon>
-          </button>
-          {expandedItems.category && (
-            <div className="flex flex-col pl-1 border-l-2 border-teal-700 space-y-2 w-[90%] self-end items-start justify-center">
-              <button
-                onClick={() => navigate("/admin/products")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Category List
-              </button>
-              <button
-                onClick={() => navigate("/admin/products/upload")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Add a Category
-              </button>
-              <button
-                onClick={() => navigate("/admin/products/upload")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Sub Category List
-              </button>
-              <button
-                onClick={() => navigate("/admin/products/upload")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Add a sub category
-              </button>
-            </div>
-          )}
-          {/* home banner slides */}
-          <button
-            onClick={() => toggleExpand("homeBannerSlides")}
-            className="cursor-pointer w-[100%] lg:h-10 flex justify-between gap-1 hover:bg-teal-800 items-center rounded-xl px-3 text-lg mt-1"
-          >
-            <div className="flex items-center justify-start">
-              <svg
-                stroke="currentColor"
-                fill="none"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                height="1em"
-                width="1em"
-                xmlns="http://www.w3.org/2000/svg"
-                className={`${
-                  expandedItems.homeBannerSlides
-                    ? "text-teal-600"
-                    : "text-white"
-                }`}
-              >
-                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                <path d="M15 6l.01 0"></path>
-                <path d="M3 3m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z"></path>
-                <path d="M3 13l4 -4a3 5 0 0 1 3 0l4 4"></path>
-                <path d="M13 12l2 -2a3 5 0 0 1 3 0l3 3"></path>
-                <path d="M8 21l.01 0"></path>
-                <path d="M12 21l.01 0"></path>
-                <path d="M16 21l.01 0"></path>
-              </svg>
-              <span className="truncate">Home Banner Slides</span>
-            </div>
-            <FontAwesomeIcon
-              aria-hidden="true"
-              icon={expandedItems.homeBannerSlides ? faAngleDown : faAngleRight}
-            ></FontAwesomeIcon>
-          </button>
-          {expandedItems.homeBannerSlides && (
-            <div className="flex flex-col pl-1 border-l-2 border-teal-700 space-y-2 w-[90%] self-end items-start justify-center">
-              <button
-                onClick={() => navigate("/admin/products")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Add Home Banner Slide
-              </button>
-              <button
-                onClick={() => navigate("/admin/products/upload")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Home Slides List
-              </button>
-            </div>
-          )}
-          {/* home banners */}
-          <button
-            onClick={() => toggleExpand("homeBanners")}
-            className="cursor-pointer w-[100%] lg:h-10 flex justify-between gap-1 hover:bg-teal-800 items-center rounded-xl px-3 text-lg mt-1"
-          >
-            <div className="flex items-center justify-start">
-              <svg
-                stroke="currentColor"
-                fill="none"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                height="1em"
-                width="1em"
-                xmlns="http://www.w3.org/2000/svg"
-                className={`${
-                  expandedItems.homeBanners ? "text-teal-600" : "text-white"
-                }`}
-              >
-                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                <path d="M15 6l.01 0"></path>
-                <path d="M3 3m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z"></path>
-                <path d="M3 13l4 -4a3 5 0 0 1 3 0l4 4"></path>
-                <path d="M13 12l2 -2a3 5 0 0 1 3 0l3 3"></path>
-                <path d="M8 21l.01 0"></path>
-                <path d="M12 21l.01 0"></path>
-                <path d="M16 21l.01 0"></path>
-              </svg>
-              <span>Home Banners</span>
-            </div>
-            <FontAwesomeIcon
-              aria-hidden="true"
-              icon={expandedItems.homeBanners ? faAngleDown : faAngleRight}
-            ></FontAwesomeIcon>
-          </button>
-          {expandedItems.homeBanners && (
-            <div className="flex flex-col pl-1 border-l-2 border-teal-700 space-y-2 w-[90%] self-end items-start justify-center">
-              <button
-                onClick={() => navigate("/admin/products")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Banners List
-              </button>
-              <button
-                onClick={() => navigate("/admin/products/upload")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Banners Upload
-              </button>
-            </div>
-          )}
-          {/* home side banners */}
-          <button
-            onClick={() => toggleExpand("homeSideBanners")}
-            className="cursor-pointer w-[100%] lg:h-10 flex justify-between gap-1 hover:bg-teal-800 items-center rounded-xl px-3 text-lg mt-1"
-          >
-            <div className="flex items-center justify-start">
-              <svg
-                stroke="currentColor"
-                fill="none"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                height="1em"
-                width="1em"
-                xmlns="http://www.w3.org/2000/svg"
-                className={`${
-                  expandedItems.homeSideBanners ? "text-teal-600" : "text-white"
-                }`}
-              >
-                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                <path d="M15 6l.01 0"></path>
-                <path d="M3 3m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z"></path>
-                <path d="M3 13l4 -4a3 5 0 0 1 3 0l4 4"></path>
-                <path d="M13 12l2 -2a3 5 0 0 1 3 0l3 3"></path>
-                <path d="M8 21l.01 0"></path>
-                <path d="M12 21l.01 0"></path>
-                <path d="M16 21l.01 0"></path>
-              </svg>
-              <span>Home Side Banners</span>
-            </div>
-            <FontAwesomeIcon
-              aria-hidden="true"
-              icon={expandedItems.homeSideBanners ? faAngleDown : faAngleRight}
-            ></FontAwesomeIcon>
-          </button>
-          {expandedItems.homeSideBanners && (
-            <div className="flex flex-col pl-1 border-l-2 border-teal-700 space-y-2 w-[90%] self-end items-start justify-center">
-              <button
-                onClick={() => navigate("/admin/products")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Banners List
-              </button>
-              <button
-                onClick={() => navigate("/admin/products/upload")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Banners Upload
-              </button>
-            </div>
-          )}
-          {/* home bottom banners */}
-          <button
-            onClick={() => toggleExpand("homeBottomBanners")}
-            className="cursor-pointer w-[100%] lg:h-10 flex justify-between gap-1 hover:bg-teal-800 items-center rounded-xl px-3 text-lg mt-1"
-          >
-            <div className="flex items-center justify-start">
-              <svg
-                stroke="currentColor"
-                fill="none"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                height="1em"
-                width="1em"
-                xmlns="http://www.w3.org/2000/svg"
-                className={`${
-                  expandedItems.homeBottomBanners
-                    ? "text-teal-600"
-                    : "text-white"
-                }`}
-              >
-                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                <path d="M15 6l.01 0"></path>
-                <path d="M3 3m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z"></path>
-                <path d="M3 13l4 -4a3 5 0 0 1 3 0l4 4"></path>
-                <path d="M13 12l2 -2a3 5 0 0 1 3 0l3 3"></path>
-                <path d="M8 21l.01 0"></path>
-                <path d="M12 21l.01 0"></path>
-                <path d="M16 21l.01 0"></path>
-              </svg>
-              <span>Home Bottom Banners</span>
-            </div>
-            <FontAwesomeIcon
-              aria-hidden="true"
-              icon={
-                expandedItems.homeBottomBanners ? faAngleDown : faAngleRight
-              }
-            ></FontAwesomeIcon>
-          </button>
-          {expandedItems.homeBottomBanners && (
-            <div className="flex flex-col pl-1 border-l-2 border-teal-700 space-y-2 w-[90%] self-end items-start justify-center">
-              <button
-                onClick={() => navigate("/admin/products")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Banners List
-              </button>
-              <button
-                onClick={() => navigate("/admin/products/upload")}
-                className="hover:bg-teal-800 px-3 py-1 rounded-lg text-white"
-              >
-                Banners Upload
-              </button>
-            </div>
-          )}
-          <div className="mt-14 h-40 w-[100%] rounded-xl relative">
-            <img
-              src="https://i.postimg.cc/J43bXgxb/logout.jpg"
-              alt="https://i.postimg.cc/J43bXgxb/logout.jpg"
-              className="absolute top-0 left-0 h-[100%] w-[100%] object-cover rounded-xl"
-            />
-            <button className="absolute top-[46%] left-[49.5%] translate-x-[-50%] translate-y-[-50%] bg-gray-600 text-white hover:bg-gray-800 px-1.5 py-1.5 rounded-full sm:text-xl text-center justify-center items-center lg:text-2xl font-serif w-[7.5rem] border-separate border-2 border-lime-500 shadow-2xl">
-              Logout
-            </button>
           </div>
         </div>
       )}
-
-      {isUserOpen && (
-        <div
-          ref={userRef}
-          className="fixed top-16 right-10 w-80 h-40 bg-white text-teal-900 shadow-lg p-4 z-50 flex flex-col gap-2 overflow-hidden overflow-y-auto"
-        >
-          <p className="text-lg font-bold">Welcome, Inayat Hasan</p>
-          <p className="text-sm">
-            Lorem ipsum dolor sit amet consectetur adipisicing elit.
-            Voluptatibus, quae?
-          </p>
-          <Link to="/admin/profile">
-            <button className="bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl">
-              Profile
-            </button>
-          </Link>
-          <Link to="/admin/orders">
-            <button className="bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl">
-              Orders
-            </button>
-          </Link>
-          <Link to="/admin/wishlist">
-            <button className="bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl">
-              Wishlist
-            </button>
-          </Link>
-          <button
-            onClick={() => {
-              localStorage.removeItem("adminToken");
-              navigate("/admin/login");
-            }}
-            className="bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl"
-          >
-            Logout
-          </button>
-        </div>
-      )}
-
-      {isNotificationOpen && (
-        <div
-          ref={notificationRef}
-          className="fixed top-16 right-10 w-80 h-40 bg-white text-teal-900 shadow-lg p-4 z-50 flex flex-col gap-2 overflow-hidden overflow-y-auto"
-        >
-          <Link to="/admin/dashboard">
-            <button className="bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl">
-              Dashboard
-            </button>
-          </Link>
-          <Link to="/admin/products">
-            <button className="bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl">
-              Products
-            </button>
-          </Link>
-          <Link to="/admin/orders">
-            <button className="bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl">
-              Orders
-            </button>
-          </Link>
-          <button
-            onClick={() => {
-              localStorage.removeItem("adminToken");
-              navigate("/admin/login");
-            }}
-            className="bg-teal-900 px-1.5 py-2 rounded-lg sm:text-xl text-center justify-center items-center lg:text-2xl"
-          >
-            Logout
-          </button>
-        </div>
-      )}
-    </header>
+    </>
   );
 };
 

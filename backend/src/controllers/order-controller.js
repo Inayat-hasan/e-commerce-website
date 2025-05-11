@@ -5,6 +5,7 @@ import { orderModel } from "../models/order.model.js";
 import { cartModel } from "../models/cart.model.js";
 import { productModel } from "../models/product.model.js";
 import { userModel } from "../models/user.model.js";
+import { adminModel } from "../models/admin.model.js";
 
 import axios from "axios";
 import crypto, { randomUUID } from "crypto";
@@ -285,6 +286,41 @@ const getOrders = asyncHandler(async (req, res) => {
         )
       );
   } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal server error", error));
+  }
+});
+
+const getOrdersForAdmin = asyncHandler(async (req, res) => {
+  const admin = req.admin._id;
+  if (!admin) {
+    return res.status(404).json(new ApiError(404, "Buyer not found"));
+  }
+  try {
+    const user = await userModel.find({ role: "admin", _id: admin });
+    const checkInAdmin = await adminModel.find({ user: admin });
+    if (!user && !checkInAdmin) {
+      return res.status(404).json(new ApiError(404, "User not found"));
+    }
+
+    // Fetch all orders for admin
+    const orders = await orderModel
+      .find()
+      .populate("product")
+      .populate("buyer", "fullName email phoneNumber")
+      .sort({ createdAt: -1 }); // Sort by newest first
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          orders.length ? "Orders fetched successfully" : "No orders found",
+          { orders: orders || [] }
+        )
+      );
+  } catch (error) {
     console.error("Error in getOrders : ", error);
     return res
       .status(500)
@@ -292,4 +328,4 @@ const getOrders = asyncHandler(async (req, res) => {
   }
 });
 
-export { createOrder, verifyAndCompleteOrder, getOrders };
+export { createOrder, verifyAndCompleteOrder, getOrders, getOrdersForAdmin };

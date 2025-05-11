@@ -58,12 +58,4 @@
   }
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  [data-theme="dark"] {
-    color-scheme: dark;
-  }
-}
+@custom-variant dark (&:where(.dark, .dark *));

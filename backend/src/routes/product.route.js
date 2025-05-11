@@ -9,11 +9,7 @@ import {
   getProductsAccordingToCategory,
   getProductsAccordingToBrand,
   getProductsAccordingToSearch,
-  generateProducts,
-  deleteAllProducts,
-  uploadAndReturn,
   editProduct,
-  userBackout,
   getFeaturedProducts,
   getLatestProducts,
   getBestSellingProducts,
@@ -27,13 +23,20 @@ import upload from "../middlewares/multer.middleware.js";
 const productRouter = Router();
 
 // admin routes
-productRouter
-  .route("/admin/create-product")
-  .post(
-    verifyAdminJWT,
-    upload.fields([{ name: "images", maxCount: 6 }]),
-    createProduct
-  );
+productRouter.route("/admin/create-product").post(
+  verifyAdminJWT,
+  upload.fields([
+    {
+      name: "images",
+      maxCount: 6,
+      // Add file size limit (5MB per file)
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+      },
+    },
+  ]),
+  createProduct
+);
 
 productRouter
   .route("/admin/get-all-products")
@@ -44,16 +47,8 @@ productRouter
   .delete(verifyAdminJWT, deleteProduct);
 
 productRouter
-  .route("/admin/get-random-products")
-  .get(verifyAdminJWT, generateProducts);
-
-productRouter
   .route("/admin/get-product/:productId")
   .get(verifyAdminJWT, getProductDetails);
-
-productRouter
-  .route("/admin/delete-all-products")
-  .delete(verifyAdminJWT, deleteAllProducts);
 
 // buyer routes
 productRouter.route("/buyer/get-product/:productId").get(getProductDetails);
@@ -70,17 +65,20 @@ productRouter
   .route("/buyer/get-products-by-search/:search")
   .get(getProductsAccordingToSearch);
 
-productRouter
-  .route("/admin/update-product/:productId")
-  .post(verifyAdminJWT, editProduct);
-
-productRouter
-  .route("/admin/upload-image/:productId")
-  .post(verifyAdminJWT, upload.single("image"), uploadAndReturn);
-
-productRouter
-  .route("/admin/user-backout/:productId")
-  .post(verifyAdminJWT, userBackout);
+productRouter.route("/admin/edit-product/:productId").post(
+  verifyAdminJWT,
+  upload.fields([
+    {
+      name: "images",
+      maxCount: 6,
+      // Add file size limit (5MB per file)
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+      },
+    },
+  ]),
+  editProduct
+);
 
 productRouter.route("/buyer/get-featured-products").get(getFeaturedProducts);
 

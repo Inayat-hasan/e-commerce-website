@@ -5,12 +5,6 @@ import {
   logoutAndResetCart,
 } from "../redux/slices/authentication/authSlice";
 
-/**
- * Handles user logout process
- * @param {Function} dispatch - Redux dispatch function
- * @param {Function} navigate - React Router navigate function
- * @returns {Promise<boolean>} - Returns true if logout was successful, false otherwise
- */
 const handleLogout = async (dispatch, navigate) => {
   const serverUrl = import.meta.env.VITE_SERVER_URL;
 

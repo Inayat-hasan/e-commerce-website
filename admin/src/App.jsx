@@ -15,6 +15,7 @@ import {
   Register,
   ResetPass,
   ResetSuccess,
+  VerifyOtp,
 } from "./pages/index.js";
 import Layout from "./Layout.jsx";
 
@@ -27,6 +28,7 @@ const App = () => {
           <Route path="/" element={<Home />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPass />} />
+          <Route path="/verify-otp" element={<VerifyOtp />} />
           <Route path="/reset-password/:id/:token" element={<ResetPass />} />
           <Route path="/reset-password/success" element={<ResetSuccess />} />
           <Route path="/forgot-password/success" element={<ForgotSuccess />} />

@@ -353,14 +353,10 @@ const logout = asyncHandler(async (req, res) => {
       return res.status(400).json(new ApiError(400, "user is not logged in !"));
     }
 
-    const options = {
-      httpOnly: true,
-      secure: true,
-    };
     return res
       .status(200)
-      .clearCookie("buyerAccessToken", options)
-      .clearCookie("buyerRefreshToken", options)
+      .clearCookie("buyerAccessToken")
+      .clearCookie("buyerRefreshToken")
       .json(new ApiResponse(200, "User logout successfully!", { user }));
   } catch (error) {
     console.log("error : ", error);

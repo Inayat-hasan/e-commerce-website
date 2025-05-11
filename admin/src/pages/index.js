@@ -13,6 +13,7 @@ import ProductWeight from "./ProductWeight";
 import ProductSize from "./ProductSize";
 import ProductRam from "./ProductRam";
 import ProductOrders from "./ProductOrders";
+import VerifyOtp from "./VerifyOtp";
 
 export {
   ForgotPass,
@@ -30,4 +31,5 @@ export {
   Register,
   ResetPass,
   ResetSuccess,
+  VerifyOtp,
 };

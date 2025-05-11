@@ -23,7 +23,6 @@ const verifyBuyerJWT = asyncHandler(async (req, _, next) => {
     req.buyer = user;
     next();
   } catch (error) {
-    console.log("JWT Verification Error: ", error);
     throw new ApiError(401, "Invalid token or unauthorized access", {
       err: error,
     });
@@ -50,7 +49,6 @@ const verifyAdminJWT = asyncHandler(async (req, _, next) => {
     req.admin = user;
     next();
   } catch (error) {
-    console.log("JWT Verification Error: ", error);
     throw new ApiError(401, "Invalid token or unauthorized access", {
       err: error,
     });

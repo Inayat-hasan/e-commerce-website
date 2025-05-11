@@ -1,3 +1,4 @@
-const selectIsOpen = (state) => state.sidebar.isOpen;
+const selectIsSideBarOpened = (state) => state.sidebar.isOpened;
+const selectIsLargeScreen = (state) => state.sidebar.isLargeScreen;
 
-export { selectIsOpen };
+export { selectIsSideBarOpened, selectIsLargeScreen };

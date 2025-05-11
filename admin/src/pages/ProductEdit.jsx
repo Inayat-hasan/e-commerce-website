@@ -1,46 +1,76 @@
-import {
-  faChevronDown,
-  faHome,
-  faSyncAlt,
-  faXmark,
-} from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
-import { useAppSelector } from "../redux/hooks";
-import { selectIsOpen } from "../redux/reducers/sidebar/sidebarSelector";
-import { selectIsLoggedIn } from "../redux/reducers/authentication/authSelector";
+import { useAppSelector } from "../redux/hooks"; // Assuming path is correct
+import {
+  selectIsLargeScreen,
+  selectIsSideBarOpened,
+} from "../redux/reducers/sidebar/sidebarSelector"; // Assuming path is correct
+import {
+  selectIsLoggedIn,
+  // selectUser, // Not used in this component
+} from "../redux/reducers/authentication/authSelector.js"; // Assuming path is correct
+import {
+  ChevronDown,
+  Home,
+  Replace,
+  X,
+  ImagePlus,
+  Trash2,
+  Edit3,
+  UploadCloud,
+  LoaderCircle,
+  AlertTriangle,
+  Save,
+} from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+// Assuming these components are correctly imported and can be styled via className
+import Select from "../components/Select.jsx";
+import FormField from "../components/FormField.jsx";
+import Textarea from "../components/Textarea.jsx";
+import Input from "../components/Input.jsx";
 
 const ProductEdit = () => {
-  const { isMenuOpen } = useMenu();
-  const isUserLoggedIn = useAppSelector(selectIsLoggedIn);
+  const isLoggedIn = useAppSelector(selectIsLoggedIn);
   const serverUrl = import.meta.env.VITE_SERVER_URL;
-  const isSideBarOpened = useAppSelector(selectIsOpen);
-  const [productName, setProductName] = useState(""); // 1
-  const [description, setDescription] = useState(""); // 2
-  const [category, setCategory] = useState(""); // 3
-  const [subCategory, setSubCategory] = useState(""); // 4
-  const [actualPrice, setActualPrice] = useState(""); // 5
-  const [discountedPrice, setDiscountedPrice] = useState(""); // 6
-  const [stock, setStock] = useState(""); // 7
-  const [stockUnit, setStockUnit] = useState(""); // 8
-  const [brand, setBrand] = useState(""); // 9
-  const [status, setStatus] = useState(""); // 10
-  const [isFeatured, setIsFeatured] = useState(""); // 11
-  const [locations, setLocations] = useState([]); // 12
-  const [images, setImages] = useState([]);
-  const [product, setProduct] = useState({});
+  const isLargeScreen = useAppSelector(selectIsLargeScreen);
+  const isSideBarOpened = useAppSelector(selectIsSideBarOpened);
+
+  const [product, setProduct] = useState({
+    name: "",
+    description: "",
+    category: "",
+    subCategory: "",
+    actualPrice: "",
+    discountedPrice: "",
+    stock: "",
+    stockUnit: "",
+    discountPercentage: "", // Will be calculated or fetched
+    brand: "",
+    status: "active",
+    isFeatured: false,
+    images: [], // Holds { url: '...', publicId: '...' }
+    locations: [],
+  });
+
   const { productId } = useParams();
   const navigate = useNavigate();
-  const [inputValue, setInputValue] = useState("");
+
+  const [isLoadingProduct, setIsLoadingProduct] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [pendingDeleteImages, setPendingDeleteImages] = useState([]);
-  const [pendingAddImages, setPendingAddImages] = useState([]);
-  const [pendingReplaceImages, setPendingReplaceImages] = useState([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [filteredLocations, setFilteredLocations] = useState(allLocations);
+  const [pendingAddImages, setPendingAddImages] = useState([]); // Files to be uploaded { id: tempId, file: File }
+  const [pendingDeleteImages, setPendingDeleteImages] = useState([]); // publicIds of Cloudinary images to delete
+  const [locationInputValue, setLocationInputValue] = useState(""); // For location input
+  // const [isUploading, setIsUploading] = useState(false); // Can be useful if adding images is a separate step
+  const [filteredLocations, setFilteredLocations] = useState([]);
+  // const [replacedImagesMap, setReplacedImagesMap] = useState({}); // For tracking, might not be strictly needed for backend
+  const [isSaving, setIsSaving] = useState(false);
+
+  const fileInputRef = useRef(null); // For adding new images
+  const replaceFileRefs = useRef([]); // For replacing existing images
+  const locationDropdownRef = useRef(null);
 
   const allLocations = [
     "india",
@@ -60,625 +90,826 @@ const ProductEdit = () => {
     "south korea",
   ];
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        const req = await axios.get(
-          `${serverUrl}/api/product/admin/get-product/${productId}`
-        );
-        if (req.status === 200) {
-          const product = req.data.data.product;
-          setProduct(product);
-          setProductName(product.name); // 1
-          setDescription(product.description); // 2
-          setCategory(product.category); // 3
-          setSubCategory(product.subCategory); // 4
-          setActualPrice(product.actualPrice); // 5
-          setDiscountedPrice(product.discountedPrice); // 6
-          setStock(product.stock); // 7
-          setStockUnit(product.stockUnit); // 8
-          setBrand(product.brand); // 9
-          setStatus(product.status); // 10
-          setIsFeatured(product.isFeatured); // 11
-          setLocations(product.locations || []); // 12
-          setImages(product.images);
-        }
-      } catch (error) {
-        console.log(error);
-      }
-    };
-    fetchProduct();
-  }, [productId]);
-
-  const replaceFileRef = useRef([]);
-
-  const handleImageOperations = {
-    add: (e) => {
-      const files = Array.from(e.target.files);
-      setIsUploading(true);
-
-      files.forEach((file) => {
-        // Add raw file to pendingAddImages
-        setPendingAddImages((prev) => [...prev, file]);
-
-        // Create FileReader for preview
-        const reader = new FileReader();
-        reader.onload = () => {
-          // Create preview object
-          const previewImage = {
-            url: reader.result,
-            file: file,
-            publicId: `temp-${Date.now()}-${file.name}`,
-          };
-          setImages((prev) => [...prev, previewImage]);
-        };
-        reader.readAsDataURL(file);
-      });
-
-      setIsUploading(false);
-      fileInputRef.current.value = null;
-      setHasUnsavedChanges(true);
-    },
-
-    replace: async (oldImage, index) => {
-      const file = replaceFileRef.current[index].files[0];
-      if (!file) return;
-
-      // Create FileReader for preview
-      const reader = new FileReader();
-      reader.onload = () => {
-        // Create preview object
-        const previewImage = {
-          url: reader.result,
-          file: file,
-          publicId: oldImage.publicId, // Keep old publicId for reference
-        };
-
-        // Update images array with preview
-        setImages((prev) =>
-          prev.map((img, idx) => (idx === index ? previewImage : img))
-        );
-
-        // Add to pending replacements
-        setPendingReplaceImages((prev) => [...prev, [oldImage, file]]);
-        setHasUnsavedChanges(true);
-      };
-
-      // Read file as data URL for preview
-      reader.readAsDataURL(file);
-      replaceFileRef.current[index].value = null;
-    },
-
-    delete: (publicId) => {
-      const imageToDelete = images.find((img) => img.publicId === publicId);
-      if (!imageToDelete) return;
-
-      setPendingDeleteImages((prev) => [...prev, imageToDelete]);
-      setImages((prev) => prev.filter((img) => img.publicId !== publicId));
-      setHasUnsavedChanges(true);
-    },
-  };
-
-  const fileInputRef = useRef(null);
-
-  const validateProduct = () => {
-    const errors = {
-      productName: !productName.trim() && "Product name is required",
-      category: !category && "Category is required",
-      actualPrice:
-        (isNaN(parseFloat(actualPrice)) || parseFloat(actualPrice) <= 0) &&
-        "Actual price must be a positive number",
-      discountedPrice:
-        discountedPrice &&
-        (isNaN(parseFloat(discountedPrice)) ||
-          parseFloat(discountedPrice) <= 0) &&
-        "Discounted price must be a positive number",
-      priceComparison:
-        parseFloat(discountedPrice) > parseFloat(actualPrice) &&
-        "Discounted price cannot be greater than actual price",
-      stock:
-        (isNaN(parseInt(stock)) || parseInt(stock) < 0) &&
-        "Stock must be a non-negative number",
-      images: images.length === 0 && "At least one product image is required",
-    };
-
-    const activeErrors = Object.values(errors).filter(Boolean);
-    return {
-      isValid: activeErrors.length === 0,
-      errors: activeErrors,
-    };
-  };
-
-  const handlePublish = async () => {
-    const validation = validateProduct();
-    if (!validation.isValid) {
-      alert(
-        "Please correct the following errors:\n" + validation.errors.join("\n")
-      );
+  const fetchProduct = useCallback(async () => {
+    if (!productId) {
+      toast.error("No product ID provided.");
+      setIsLoadingProduct(false);
+      navigate("/"); // Or to a relevant error page/product list
       return;
     }
-
+    setIsLoadingProduct(true);
     try {
-      const response = await axios.post(
-        `${serverUrl}/api/product/admin/update-product/${productId}`,
-        {
-          productName,
-          description,
-          category,
-          subCategory,
-          actualPrice,
-          discountedPrice,
-          stock,
-          stockUnit,
-          brand,
-          status,
-          isFeatured,
-          locations,
-          images,
-          pendingAddImages,
-          pendingDeleteImages,
-          pendingReplaceImages,
-        },
+      const req = await axios.get(
+        `${serverUrl}/api/product/admin/get-product/${productId}`,
         { withCredentials: true }
       );
-
-      if (response.status === 200) {
-        setHasUnsavedChanges(false);
-        navigate(`/admin/product/${productId}`);
+      if (req.data.data.product) {
+        const fetchedProduct = req.data.data.product;
+        setProduct({
+          ...fetchedProduct,
+          actualPrice: fetchedProduct.actualPrice || "",
+          discountedPrice: fetchedProduct.discountedPrice || "",
+          stock: fetchedProduct.stock || "",
+          isFeatured: fetchedProduct.isFeatured || false,
+          images: fetchedProduct.images || [],
+          locations: fetchedProduct.locations || [],
+        });
+      } else {
+        toast.error("Product not found.");
+        setProduct(null); // Explicitly set to null or an empty state
+        navigate("/"); // Or your products list page
       }
     } catch (error) {
-      console.error("Error updating product:", error);
-      alert("Failed to update product. Please try again.");
-    }
-  };
-
-  const handleLocationSelect = (location) => {
-    // Normalize location for case-insensitive comparison
-    const normalizedLocation = location.toLowerCase();
-    if (locations.some((loc) => loc.toLowerCase() === normalizedLocation)) {
-      return;
-    }
-    setLocations((prev) => [...prev, location]);
-    setInputValue("");
-    setFilteredLocations(allLocations);
-  };
-
-  const handleLocationRemove = (locationToRemove) => {
-    setLocations((prev) => prev.filter((loc) => loc !== locationToRemove));
-    setHasUnsavedChanges(true);
-  };
-
-  const filterLocations = (input) => {
-    const normalizedInput = input.toLowerCase();
-    const filtered = allLocations.filter(
-      (loc) =>
-        loc.toLowerCase().includes(normalizedInput) &&
-        !locations.some(
-          (selected) => selected.toLowerCase() === loc.toLowerCase()
-        )
-    );
-    setFilteredLocations(filtered);
-  };
-
-  useEffect(() => {
-    if (inputValue) {
-      filterLocations(inputValue);
-    } else {
-      // Show only unselected locations when input is empty
-      setFilteredLocations(
-        allLocations.filter(
-          (loc) =>
-            !locations.some(
-              (selected) => selected.toLowerCase() === loc.toLowerCase()
-            )
-        )
+      console.error("Error fetching product:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to fetch product details."
       );
+      setProduct(null); // Indicate error or not found
+      navigate("/");
+    } finally {
+      setIsLoadingProduct(false);
     }
-  }, [inputValue, locations]);
+  }, [serverUrl, productId, navigate]);
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest(".location-dropdown")) {
+    if (isLoggedIn) {
+      fetchProduct();
+    }
+  }, [isLoggedIn, fetchProduct]); // fetchProduct is memoized by useCallback
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        locationDropdownRef.current &&
+        !locationDropdownRef.current.contains(event.target)
+      ) {
         setIsDropdownOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue =
-          "You have unsaved changes. Are you sure you want to leave?";
-        return e.returnValue;
+  const isTemporaryImage = (publicId) =>
+    publicId && publicId.startsWith("temp-");
+
+  const handleAddNewImages = (e) => {
+    const files = Array.from(e.target.files);
+    const currentImageCount = product.images.length;
+    const newImagesForPreview = [];
+    const newPendingImages = [];
+
+    files.forEach((file) => {
+      if (product.images.length + newImagesForPreview.length >= 6) {
+        toast.warn("Maximum 6 images allowed.");
+        return; // Stop processing if limit is reached
       }
+      // Add validation for type and size here if needed
+      const reader = new FileReader();
+      const imageId = `temp-${Date.now()}-${file.name}`;
+      reader.onloadend = () => {
+        newImagesForPreview.push({ url: reader.result, publicId: imageId });
+        // Directly update product state for preview
+        setProduct((prev) => ({
+          ...prev,
+          images: [...prev.images, { url: reader.result, publicId: imageId }],
+        }));
+      };
+      reader.readAsDataURL(file);
+      newPendingImages.push({ id: imageId, file });
+    });
+
+    setPendingAddImages((prev) => [
+      ...prev,
+      ...newPendingImages.slice(0, 6 - currentImageCount),
+    ]);
+
+    if (fileInputRef.current) fileInputRef.current.value = null;
+  };
+
+  const handleDeleteImage = (publicIdToDelete, index) => {
+    const imageExists = product.images.find(
+      (img) => img.publicId === publicIdToDelete
+    );
+    if (!imageExists) return;
+
+    if (!isTemporaryImage(publicIdToDelete)) {
+      // It's a Cloudinary image, mark for deletion on backend
+      setPendingDeleteImages((prev) => [
+        ...new Set([...prev, publicIdToDelete]),
+      ]);
+    } else {
+      // It's a new temporary image, remove from pendingAddImages
+      setPendingAddImages((prev) =>
+        prev.filter((pImg) => pImg.id !== publicIdToDelete)
+      );
+    }
+    // Remove from UI
+    setProduct((prev) => ({
+      ...prev,
+      images: prev.images.filter((img) => img.publicId !== publicIdToDelete),
+    }));
+  };
+
+  const handleReplaceImage = (indexToReplace) => {
+    const file = replaceFileRefs.current[indexToReplace]?.files[0];
+    if (!file) return;
+
+    const oldImage = product.images[indexToReplace];
+    if (!oldImage) return;
+
+    // Add validation for type and size here if needed
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const newTempId = `temp-${Date.now()}-${file.name}`;
+      const newImagePreview = { url: reader.result, publicId: newTempId };
+
+      // Update UI
+      const updatedImages = [...product.images];
+      updatedImages[indexToReplace] = newImagePreview;
+      setProduct((prev) => ({ ...prev, images: updatedImages }));
+
+      // Manage pending states
+      if (!isTemporaryImage(oldImage.publicId)) {
+        setPendingDeleteImages((prev) => [
+          ...new Set([...prev, oldImage.publicId]),
+        ]);
+      } else {
+        setPendingAddImages((prev) =>
+          prev.filter((pImg) => pImg.id !== oldImage.publicId)
+        );
+      }
+      setPendingAddImages((prev) => [...prev, { id: newTempId, file }]);
+    };
+    reader.readAsDataURL(file);
+    if (replaceFileRefs.current[indexToReplace])
+      replaceFileRefs.current[indexToReplace].value = null;
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value, type } = e.target;
+    const processedValue =
+      name === "isFeatured"
+        ? value === "true"
+        : type === "number"
+        ? value === ""
+          ? ""
+          : Number(value)
+        : value;
+    setProduct((prev) => ({ ...prev, [name]: processedValue }));
+  };
+
+  const calculateDiscountPercentage = useCallback(() => {
+    const actual = parseFloat(product.actualPrice);
+    const discounted = parseFloat(product.discountedPrice);
+    if (
+      !isNaN(actual) &&
+      actual > 0 &&
+      !isNaN(discounted) &&
+      discounted > 0 &&
+      discounted <= actual
+    ) {
+      return Math.round(((actual - discounted) / actual) * 100);
+    }
+    return product.discountPercentage || ""; // Keep existing if not calculable or fallback
+  }, [
+    product.actualPrice,
+    product.discountedPrice,
+    product.discountPercentage,
+  ]);
+
+  const validateProduct = () => {
+    let errors = [];
+    if (!product.name?.trim()) errors.push("Product name is required.");
+    if (!product.description?.trim()) errors.push("Description is required.");
+    if (!product.category) errors.push("Category is required.");
+    if (!product.brand?.trim()) errors.push("Brand is required.");
+    if (!product.stockUnit) errors.push("Stock unit is required.");
+    if (!product.locations || product.locations.length === 0)
+      errors.push("At least one location is required.");
+    if (!product.status) errors.push("Product status is required.");
+
+    const actualPrice = parseFloat(product.actualPrice);
+    if (isNaN(actualPrice) || actualPrice <= 0)
+      errors.push("Actual price must be a positive number.");
+    if (product.discountedPrice) {
+      const discountedPrice = parseFloat(product.discountedPrice);
+      if (isNaN(discountedPrice) || discountedPrice <= 0)
+        errors.push("Discounted price must be positive if provided.");
+      if (discountedPrice > actualPrice)
+        errors.push("Discounted price cannot exceed actual price.");
+    }
+    const stock = parseInt(product.stock);
+    if (isNaN(stock) || stock < 0)
+      errors.push("Stock must be a non-negative number.");
+    if (!product.images || product.images.length === 0)
+      errors.push("At least one product image is required.");
+
+    errors.forEach((err) => toast.error(err));
+    return errors.length === 0;
+  };
+
+  const handleSaveChanges = async () => {
+    if (!validateProduct()) return;
+    setIsSaving(true);
+
+    const finalDiscountPercentage = calculateDiscountPercentage();
+    const productDataToSubmit = {
+      ...product,
+      discountPercentage: finalDiscountPercentage,
+      images: product.images
+        .filter((img) => !isTemporaryImage(img.publicId))
+        .map((img) => ({ url: img.url, publicId: img.publicId })), // Send only existing Cloudinary images' info
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedChanges]);
+    // delete productDataToSubmit._id; // // API might not want _id in body, or might use it for update path
+
+    const formData = new FormData();
+    formData.append("product", JSON.stringify(productDataToSubmit));
+    pendingAddImages.forEach(({ file }) => formData.append("newImages", file)); // Changed key to 'newImages'
+    formData.append("imagesToDelete", JSON.stringify(pendingDeleteImages));
+
+    try {
+      const res = await axios.put(
+        // Changed to PUT for update
+        `${serverUrl}/api/product/admin/edit-product/${productId}`, // Ensure productId is used
+        formData,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+
+      if (res.data.success && res.data.data.product) {
+        toast.success("Product updated successfully!");
+        // Optionally refetch or update state more precisely
+        setPendingAddImages([]);
+        setPendingDeleteImages([]);
+        fetchProduct(); // Refetch to get the latest state including new image URLs
+        navigate(`/view-product/${res.data.data.product._id || productId}`, {
+          state: { successMessage: "Product updated successfully" },
+        });
+      } else {
+        toast.error(
+          res.data.message || "Failed to update product. Please try again."
+        );
+      }
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "An unexpected error occurred."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleLocationSelect = (location) => {
+    if (
+      !product.locations.some(
+        (loc) => loc.toLowerCase() === location.toLowerCase()
+      )
+    ) {
+      setProduct((prev) => ({
+        ...prev,
+        locations: [...prev.locations, location],
+      }));
+    }
+    setLocationInputValue("");
+    setFilteredLocations(
+      allLocations.filter(
+        (loc) => !product.locations.includes(loc) && loc !== location
+      )
+    );
+    setIsDropdownOpen(false);
+  };
+
+  const handleLocationRemove = (locationToRemove) => {
+    setProduct((prev) => ({
+      ...prev,
+      locations: prev.locations.filter((loc) => loc !== locationToRemove),
+    }));
+  };
+
+  useEffect(() => {
+    const currentLocationsLower =
+      product.locations?.map((l) => l.toLowerCase()) || [];
+    const filtered = locationInputValue
+      ? allLocations.filter(
+          (loc) =>
+            loc.toLowerCase().includes(locationInputValue.toLowerCase()) &&
+            !currentLocationsLower.includes(loc.toLowerCase())
+        )
+      : allLocations.filter(
+          (loc) => !currentLocationsLower.includes(loc.toLowerCase())
+        );
+    setFilteredLocations(filtered);
+  }, [locationInputValue, product.locations]);
+
+  const mainContentClass = `min-h-screen flex flex-col items-center bg-gray-50 dark:bg-slate-900 py-6 sm:py-8 px-4 transition-all duration-300 ease-in-out ${
+    isSideBarOpened && isLargeScreen ? "lg:ml-72" : "w-full"
+  }`;
+
+  // Common ClassNames for form elements (assuming custom components accept className)
+  const inputClassName =
+    "w-full px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:focus:ring-teal-400 focus:border-transparent dark:focus:border-transparent placeholder-gray-400 dark:placeholder-slate-400 transition-colors";
+  const labelClassName =
+    "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5";
+
+  if (!isLoggedIn) {
+    return (
+      <div className={`${mainContentClass} justify-center`}>
+        <div className="text-center p-8 bg-white dark:bg-slate-800 shadow-xl rounded-xl max-w-md w-full">
+          <AlertTriangle className="w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-6" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white mb-4">
+            Authentication Required
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-8 text-sm sm:text-base">
+            Please log in to edit product details.
+          </p>
+          <button
+            className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50"
+            onClick={() => navigate("/login")}
+            aria-label="Go to Login Page"
+          >
+            <Home size={20} />{" "}
+            {/* Changed to Home for consistency, or use LogIn icon */}
+            Go to Login
+          </button>
+        </div>
+        <ToastContainer position="bottom-right" theme="colored" />
+      </div>
+    );
+  }
+
+  if (isLoadingProduct) {
+    return (
+      <div className={`${mainContentClass} justify-center`}>
+        <div className="flex flex-col items-center p-10 bg-white dark:bg-slate-800 shadow-xl rounded-xl">
+          <LoaderCircle className="w-12 h-12 text-teal-600 dark:text-teal-400 animate-spin mb-4" />
+          <p className="text-xl font-semibold text-gray-700 dark:text-gray-300">
+            Loading Product Details...
+          </p>
+        </div>
+        <ToastContainer position="bottom-right" theme="colored" />
+      </div>
+    );
+  }
+
+  if (!product) {
+    // Product not found or error after loading
+    return (
+      <div className={`${mainContentClass} justify-center`}>
+        <div className="text-center p-8 bg-white dark:bg-slate-800 shadow-xl rounded-xl max-w-md w-full">
+          <AlertTriangle className="w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-6" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white mb-4">
+            Product Not Found
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-8">
+            The product you are trying to edit could not be found or an error
+            occurred.
+          </p>
+          <button
+            onClick={() => navigate("/")}
+            className="bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded-lg shadow"
+            aria-label="Back to Products"
+          >
+            Back to Products
+          </button>
+        </div>
+        <ToastContainer position="bottom-right" theme="colored" />
+      </div>
+    );
+  }
 
   return (
-    <div
-      className={`flex flex-col gap-4 bg-gray-300 items-center justify-center py-4 ${
-        isSideBarOpened ? "ml-72" : "w-full"
-      }`}
-    >
-      {/* Header */}
-      <div className="bg-teal-900 text-white w-[95%] rounded-lg flex items-center justify-between px-6 py-4">
-        <p className="text-3xl font-serif cursor-default">Product Edit</p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate("/admin/dashboard")}
-            className="bg-teal-600 p-1 rounded-xl hover:bg-teal-700 flex items-center gap-1"
-          >
-            <FontAwesomeIcon aria-hidden="true" icon={faHome}></FontAwesomeIcon>
-            <span>Dashboard</span>
-          </button>
-          <span className="text-2xl">/</span>
-          <button
-            onClick={() => navigate("/admin/dashboard")}
-            className="bg-teal-600 p-1 rounded-xl hover:bg-teal-700"
-          >
-            Products
-          </button>
-          <span className="text-2xl">/</span>
-          <button className="bg-teal-600 p-1 rounded-xl hover:bg-teal-700">
-            Product View
-          </button>
-        </div>
-      </div>
-      {/* Basic Information */}
-      <div className="bg-teal-900 text-white w-[95%] rounded-lg flex flex-col px-6 py-4 justify-center gap-2">
-        {/* Heading */}
-        <h5 className="text-2xl font-serif cursor-default">
-          Basic Information
-        </h5>
-        {/* Product Name */}
-        <div className="flex flex-col gap-1">
-          <label>PRODUCT NAME</label>
-          <input
-            type="text"
-            name="productName"
-            className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg"
-            placeholder="Product Name"
-            value={productName}
-            onChange={(e) => setProductName(e.target.value)}
-          />
-        </div>
-        {/* Description */}
-        <div className="flex flex-col gap-1">
-          <label>DESCRIPTION</label>
-          <textarea
-            type="text"
-            name="description"
-            id=""
-            placeholder="Description"
-            className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        {/* grid */}
-        <div className="grid lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-1 gap-2">
-          <div id="1" className="flex flex-col gap-2">
-            <label>CATEGORY</label>
-            <select
-              value={category}
-              className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg cursor-pointer"
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              <option>Electronics</option>
-              <option value="">Men</option>
-              <option value="">Women</option>
-            </select>
-          </div>
-          <div id="2" className="flex flex-col gap-2">
-            <label>SUB-CATEGORY</label>
-            <select
-              onChange={(e) => setSubCategory(e.target.value)}
-              name=""
-              id=""
-              value={subCategory}
-              className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg cursor-pointer"
-            >
-              <option value="">Men</option>
-              <option value="">Women</option>
-            </select>
-          </div>
-          <div id="3" className="flex flex-col gap-2">
-            <label>ACTUAL-PRICE</label>
-            <input
-              onChange={(e) => setActualPrice(e.target.value)}
-              type="text"
-              name=""
-              id=""
-              value={actualPrice}
-              className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg"
-              placeholder="Actual Price"
-            />
-          </div>
-          <div id="4" className="flex flex-col gap-2">
-            <label>DISCOUNTED-PRICE</label>
-            <input
-              onChange={(e) => setDiscountedPrice(e.target.value)}
-              type="text"
-              name=""
-              id=""
-              value={discountedPrice}
-              className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg"
-              placeholder="Discounted Price"
-            />
-          </div>
-          <div id="5" className="flex flex-col gap-2">
-            <label>STOCK</label>
-            <input
-              onChange={(e) => setStock(e.target.value)}
-              type="text"
-              name=""
-              id=""
-              value={stock}
-              className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg"
-              placeholder="Stock"
-            />
-          </div>
-          <div id="6" className="flex flex-col gap-2">
-            <label>STOCK-UNIT</label>
-            <select
-              onChange={(e) => setStockUnit(e.target.value)}
-              name=""
-              id=""
-              value={stockUnit}
-              className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg cursor-pointer"
-            >
-              <option value="">Kg</option>
-              <option value="">Litre</option>
-            </select>
-          </div>
-          <div id="7" className="flex flex-col gap-2">
-            <label>STATUS</label>
-            <select
-              onChange={(e) => setStatus(e.target.value)}
-              name=""
-              id=""
-              value={status}
-              className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg cursor-pointer"
-            >
-              <option value="">Active</option>
-              <option value="">Inactive</option>
-            </select>
-          </div>
-          <div id="8" className="flex flex-col gap-2">
-            <label>IS-FEATURED</label>
-            <select
-              onChange={(e) => setIsFeatured(e.target.value)}
-              name=""
-              id=""
-              value={isFeatured}
-              className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg cursor-pointer"
-            >
-              <option value="">True</option>
-              <option value="">False</option>
-            </select>
-          </div>
-          <div id="9" className="flex flex-col gap-2">
-            <label>BRAND</label>
-            <input
-              onChange={(e) => setBrand(e.target.value)}
-              type="text"
-              name=""
-              id=""
-              value={brand}
-              className="bg-[#306c67] outline-none py-1.5 rounded-md px-2 text-lg"
-              placeholder="Brand"
-            />
-          </div>
-        </div>
-        {/* LOCATION */}
-        <div className="flex flex-col gap-1">
-          <label>LOCATION</label>
-          <div className="bg-[#306c67] rounded-md flex gap-3 items-center">
-            <div className="flex flex-wrap gap-1 pl-1 py-2">
-              {locations.map((location) => (
-                <div
-                  key={location}
-                  className="bg-teal-800 text-white rounded-xl flex items-center border border-teal-600 font-semibold justify-center pl-2 py-1 text-sm"
-                >
-                  {location}
-                  <button
-                    onClick={() => handleLocationRemove(location)}
-                    className="text-white h-7 w-7 rounded-full hover:bg-teal-700"
-                  >
-                    <FontAwesomeIcon aria-hidden="true" icon={faXmark} />
-                  </button>
-                </div>
-              ))}
+    <div className={mainContentClass}>
+      <div className="w-full max-w-6xl space-y-8">
+        <header className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Edit3 className="h-8 w-8 text-teal-600 dark:text-teal-400" />
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                Edit Product
+              </h1>
             </div>
+            <button
+              onClick={() => navigate("/")} // Or to product list
+              className="flex items-center gap-2 text-sm font-medium py-2.5 px-5 rounded-lg bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white shadow-md hover:shadow-lg transition-all duration-150 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:focus:ring-teal-300"
+              aria-label="Go to Dashboard"
+            >
+              <Home size={18} />
+              <span>Dashboard</span>
+            </button>
+          </div>
+        </header>
 
-            <div className="relative flex-1 location-dropdown">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onFocus={() => setIsDropdownOpen(true)}
-                className="outline-none h-10 pl-2 bg-teal-900 text-lg rounded-xl w-full"
-                placeholder="Add a location..."
+        {/* Basic Information */}
+        <section className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-6 border-b pb-4 border-gray-200 dark:border-slate-700">
+            Basic Information
+          </h2>
+          <div className="space-y-6">
+            <FormField
+              label="Product Name"
+              htmlFor="name"
+              labelClassName={labelClassName}
+            >
+              <Input
+                name="name"
+                value={product.name}
+                onChange={handleInputChange}
+                placeholder="e.g., Premium Wireless Headphones"
+                className={inputClassName}
               />
-              {isDropdownOpen && filteredLocations.length > 0 && (
-                <ul className="absolute w-full bg-teal-700 mt-1 rounded-md shadow-md z-10 max-h-48 overflow-y-auto">
-                  {filteredLocations.map((location) => (
-                    <li
-                      key={location}
-                      onClick={() => handleLocationSelect(location)}
-                      className="px-3 py-2 cursor-pointer text-white hover:bg-teal-600 transition-colors"
+            </FormField>
+            <FormField
+              label="Description"
+              htmlFor="description"
+              labelClassName={labelClassName}
+            >
+              <Textarea
+                name="description"
+                value={product.description}
+                onChange={handleInputChange}
+                placeholder="Detailed description of the product..."
+                rows={5}
+                className={inputClassName}
+              />
+            </FormField>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <FormField
+                label="Category"
+                htmlFor="category"
+                labelClassName={labelClassName}
+              >
+                <Select
+                  name="category"
+                  value={product.category}
+                  onChange={handleInputChange}
+                  className={inputClassName}
+                >
+                  <option value="">Select Category</option>
+                  <option value="Electronics">Electronics</option>
+                  <option value="Fashion">Fashion</option>
+                  <option value="Home">Home & Kitchen</option>
+                  <option value="Sports">Sports & Outdoors</option>
+                  {/* Add more categories */}
+                </Select>
+              </FormField>
+              <FormField
+                label="Sub-Category (Optional)"
+                htmlFor="subCategory"
+                labelClassName={labelClassName}
+              >
+                <Input
+                  name="subCategory"
+                  value={product.subCategory || ""}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Mens T-shirts, Over-ear"
+                  className={inputClassName}
+                />
+              </FormField>
+              <FormField
+                label="Brand"
+                htmlFor="brand"
+                labelClassName={labelClassName}
+              >
+                <Input
+                  name="brand"
+                  value={product.brand}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Sony, Nike, Apple"
+                  className={inputClassName}
+                />
+              </FormField>
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing & Stock Section */}
+        <section className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-6 border-b pb-4 border-gray-200 dark:border-slate-700">
+            Pricing & Stock
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <FormField
+              label="Actual Price ($)"
+              htmlFor="actualPrice"
+              labelClassName={labelClassName}
+            >
+              <Input
+                type="number"
+                name="actualPrice"
+                value={product.actualPrice}
+                onChange={handleInputChange}
+                placeholder="e.g., 199.99"
+                className={inputClassName}
+              />
+            </FormField>
+            <FormField
+              label="Discounted Price ($) (Optional)"
+              htmlFor="discountedPrice"
+              labelClassName={labelClassName}
+            >
+              <Input
+                type="number"
+                name="discountedPrice"
+                value={product.discountedPrice}
+                onChange={handleInputChange}
+                placeholder="e.g., 149.99"
+                className={inputClassName}
+              />
+            </FormField>
+            <FormField
+              label="Discount Percentage (%)"
+              htmlFor="discountPercentage"
+              labelClassName={labelClassName}
+            >
+              <Input
+                type="text"
+                name="discountPercentage"
+                value={calculateDiscountPercentage()}
+                readOnly
+                placeholder="Auto-calculated"
+                className={`${inputClassName} bg-gray-100 dark:bg-slate-600 cursor-not-allowed`}
+              />
+            </FormField>
+            <FormField
+              label="Stock Quantity"
+              htmlFor="stock"
+              labelClassName={labelClassName}
+            >
+              <Input
+                type="number"
+                name="stock"
+                value={product.stock}
+                onChange={handleInputChange}
+                placeholder="e.g., 150"
+                className={inputClassName}
+              />
+            </FormField>
+            <FormField
+              label="Stock Unit"
+              htmlFor="stockUnit"
+              labelClassName={labelClassName}
+            >
+              <Select
+                name="stockUnit"
+                value={product.stockUnit}
+                onChange={handleInputChange}
+                className={inputClassName}
+              >
+                <option value="">Select Unit</option>
+                <option value="pieces">Pieces</option>
+                <option value="kg">Kilograms (kg)</option>
+                <option value="liters">Liters (L)</option>
+                <option value="grams">Grams (g)</option>
+                <option value="packs">Packs</option>
+                <option value="sets">Sets</option>
+              </Select>
+            </FormField>
+          </div>
+        </section>
+
+        {/* Settings & Availability Section */}
+        <section className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-6 border-b pb-4 border-gray-200 dark:border-slate-700">
+            Settings & Availability
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              label="Product Status"
+              htmlFor="status"
+              labelClassName={labelClassName}
+            >
+              <Select
+                name="status"
+                value={product.status}
+                onChange={handleInputChange}
+                className={inputClassName}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="draft">Draft</option>
+              </Select>
+            </FormField>
+            <FormField
+              label="Is Featured Product?"
+              htmlFor="isFeatured"
+              labelClassName={labelClassName}
+            >
+              <Select
+                name="isFeatured"
+                value={product.isFeatured.toString()}
+                onChange={handleInputChange}
+                className={inputClassName}
+              >
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+              </Select>
+            </FormField>
+          </div>
+
+          <FormField
+            label="Available Locations"
+            htmlFor="location-input"
+            className="mt-6"
+            labelClassName={labelClassName}
+          >
+            <div className="relative" ref={locationDropdownRef}>
+              <div
+                className={`flex flex-wrap gap-2 p-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 mb-2 min-h-[48px] items-center ${inputClassName} h-auto`}
+              >
+                {product.locations?.map((location) => (
+                  <span
+                    key={location}
+                    className="flex items-center gap-1.5 bg-teal-100 dark:bg-teal-800 text-teal-700 dark:text-teal-100 text-xs sm:text-sm font-medium px-3 py-1.5 rounded-full"
+                  >
+                    {location}
+                    <button
+                      type="button"
+                      onClick={() => handleLocationRemove(location)}
+                      className="text-teal-500 dark:text-teal-300 hover:text-teal-700 dark:hover:text-teal-100"
+                      aria-label={`Remove ${location}`}
                     >
-                      {location}
+                      <X size={14} />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  id="location-input"
+                  type="text"
+                  value={locationInputValue}
+                  onChange={(e) => setLocationInputValue(e.target.value)}
+                  onFocus={() => setIsDropdownOpen(true)}
+                  className="flex-grow p-1 outline-none bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-400"
+                  placeholder={
+                    product.locations?.length > 0
+                      ? "Add another..."
+                      : "Type to search locations..."
+                  }
+                />
+              </div>
+              {isDropdownOpen && (
+                <ul className="absolute w-full max-h-60 overflow-y-auto bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md shadow-lg z-20 mt-1">
+                  {filteredLocations.length > 0 ? (
+                    filteredLocations.map((location) => (
+                      <li
+                        key={location}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleLocationSelect(location);
+                        }}
+                        className="px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-teal-50 dark:hover:bg-slate-600 cursor-pointer"
+                      >
+                        {location}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="px-4 py-2.5 text-sm text-gray-500 dark:text-slate-400 italic">
+                      No locations match your search.
                     </li>
-                  ))}
+                  )}
                 </ul>
               )}
             </div>
+            {product.locations?.length > 0 && (
+              <div className="flex justify-end mt-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setProduct((prev) => ({ ...prev, locations: [] }))
+                  }
+                  className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
+                  aria-label="Clear all selected locations"
+                >
+                  Clear All Locations
+                </button>
+              </div>
+            )}
+          </FormField>
+        </section>
 
-            <div className="flex flex-row gap-1 justify-center items-center">
-              <button
-                onClick={() => {
-                  setLocations([]);
-                  setHasUnsavedChanges(true);
-                }}
-                className="text-xl hover:bg-teal-800 px-2 py-1 rounded-xl"
-              >
-                <FontAwesomeIcon aria-hidden="true" icon={faXmark} />
-              </button>
-              <span className="bg-white w-0.5 h-9"></span>
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="text-xl hover:bg-teal-800 px-2 py-1 rounded-xl"
-              >
-                <FontAwesomeIcon aria-hidden="true" icon={faChevronDown} />
-              </button>
+        {/* Media Section */}
+        <section className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-6 border-b pb-4 border-gray-200 dark:border-slate-700">
+            Product Media
+          </h2>
+          <FormField
+            label="Product Images (Max 6, up to 5MB each)"
+            htmlFor="fileUpload"
+            labelClassName={labelClassName}
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
+              {product.images?.map((image, index) => (
+                <div
+                  key={image.publicId || `img-${index}`}
+                  className="relative group aspect-w-1 aspect-h-1"
+                >
+                  <img
+                    src={image.url}
+                    alt={`Product image ${index + 1}`}
+                    className="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity duration-300 rounded-lg flex items-center justify-center space-x-2 opacity-0 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => replaceFileRefs.current[index]?.click()}
+                      className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-md"
+                      aria-label={`Replace image ${index + 1}`}
+                    >
+                      <Replace size={16} />
+                    </button>
+                    <input
+                      type="file"
+                      className="hidden"
+                      ref={(el) => (replaceFileRefs.current[index] = el)}
+                      onChange={() => handleReplaceImage(index)}
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteImage(image.publicId, index)}
+                      className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-md"
+                      aria-label={`Delete image ${index + 1}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {product.images?.length < 6 && (
+                <label
+                  htmlFor="fileUpload"
+                  className="aspect-w-1 aspect-h-1 cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-slate-600 hover:border-teal-500 dark:hover:border-teal-400 rounded-lg text-gray-400 dark:text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 transition-colors duration-150 ease-in-out p-2"
+                >
+                  <ImagePlus size={32} className="mb-1" />
+                  <span className="text-xs sm:text-sm text-center">
+                    Add Image
+                  </span>
+                </label>
+              )}
             </div>
-          </div>
-        </div>
-      </div>
-      {/* Media And Published */}
-      <div className="bg-teal-900 text-white w-[95%] rounded-lg flex flex-col justify-center px-6 py-4 gap-3">
-        <h5 className="self-start text-2xl font-serif cursor-default">
-          Media And Published
-        </h5>
-        <div className="flex flex-row gap-4">
-          {images.map((image, index) => (
-            <div key={index} className="relative">
-              <img
-                src={image.url}
-                alt={`Product ${index + 1}`}
-                className="w-28 h-32 object-cover rounded-lg border-2 border-teal-800"
-              />
-              <button
-                onClick={() => handleImageOperations.delete(image.publicId)}
-                className="absolute -top-2 -right-2 bg-red-500 h-6 w-6 rounded-full"
-              >
-                <FontAwesomeIcon icon={faXmark} />
-              </button>
-              <input
-                type="file"
-                className="hidden"
-                ref={(el) => (replaceFileRef.current[index] = el)}
-                onChange={() => handleImageOperations.replace(image, index)}
-                accept="image/*"
-              />
-              <button
-                onClick={() => replaceFileRef.current[index].click()}
-                className="absolute top-5 -right-2 bg-white text-teal-900 h-6 w-6 rounded-full"
-              >
-                <FontAwesomeIcon icon={faSyncAlt} />
-              </button>
-            </div>
-          ))}
-          <div className="flex items-center justify-center bg-teal-800 rounded-lg">
             <input
               type="file"
               multiple
               className="hidden"
               id="fileUpload"
-              onChange={handleImageOperations.add}
+              onChange={handleAddNewImages}
               ref={fileInputRef}
-              accept="image/*"
-              disabled={isUploading}
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              disabled={product.images?.length >= 6 || isSaving}
             />
-            <label
-              htmlFor="fileUpload"
-              className={`cursor-pointer w-28 h-32 flex flex-col items-center justify-center border-2 border-dashed border-gray-400 hover:border-teal-900 hover:bg-teal-50 hover:text-teal-800 transition-colors ease-in-out duration-300 rounded-lg text-gray-300 ${
-                isUploading ? "opacity-50" : ""
-              }`}
-            >
-              {isUploading ? (
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-300"></div>
-              ) : (
-                <>
-                  <svg
-                    stroke="currentColor"
-                    fill="currentColor"
-                    strokeWidth="0"
-                    viewBox="0 0 576 512"
-                    height="2em"
-                    width="2em"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path d="M480 416v16c0 26.51-21.49 48-48 48H48c-26.51 0-48-21.49-48-48V176c0-26.51 21.49-48 48-48h16v48H54a6 6 0 0 0-6 6v244a6 6 0 0 0 6 6h372a6 6 0 0 0 6-6v-10h48zm42-336H150a6 6 0 0 0-6 6v244a6 6 0 0 0 6 6h372a6 6 0 0 0 6-6V86a6 6 0 0 0-6-6zm6-48c26.51 0 48 21.49 48 48v256c0 26.51-21.49 48-48 48H144c-26.51 0-48-21.49-48-48V80c0-26.51 21.49-48 48-48h384zM264 144c0 22.091-17.909 40-40 40s-40-17.909-40-40 17.909-40 40-40 40 17.909 40 40zm-72 96l39.515-39.515c4.686-4.686 12.284-4.686 16.971 0L288 240l103.515-103.515c4.686-4.686 12.284-4.686 16.971 0L480 208v80H192v-48z"></path>
-                  </svg>
-                  <p className="text-sm text-center">Add Images</p>
-                </>
-              )}
-            </label>
-          </div>
-        </div>
-        <div className="flex justify-center items-center">
+            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+              Accepted formats: JPG, PNG, GIF, WEBP.{" "}
+              {Math.max(0, 6 - (product.images?.length || 0))} slots remaining.
+            </p>
+          </FormField>
+        </section>
+
+        {/* Save Changes Button */}
+        <div className="flex justify-end pt-6 pb-2">
           <button
-            onClick={handlePublish}
-            className="bg-green-600 flex flex-row items-center justify-center gap-2 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl w-[100%] border-2 border-green-500 hover:border-green-600"
+            type="button"
+            onClick={handleSaveChanges}
+            disabled={isSaving || isLoadingProduct}
+            className={`flex items-center justify-center gap-2.5 min-w-[200px] bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50
+              ${
+                isSaving || isLoadingProduct
+                  ? "opacity-60 cursor-not-allowed"
+                  : ""
+              }
+            `}
+            aria-label="Save all changes to product"
           >
-            <svg
-              stroke="currentColor"
-              fill="currentColor"
-              strokeWidth="0"
-              viewBox="0 0 640 512"
-              height="1.5em"
-              width="1.5em"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M537.6 226.6c4.1-10.7 6.4-22.4 6.4-34.6 0-53-43-96-96-96-19.7 0-38.1 6-53.3 16.2C367 64.2 315.3 32 256 32c-88.4 0-160 71.6-160 160 0 2.7.1 5.4.2 8.1C40.2 219.8 0 273.2 0 336c0 79.5 64.5 144 144 144h368c70.7 0 128-57.3 128-128 0-61.9-44-113.6-102.4-125.4zM393.4 288H328v112c0 8.8-7.2 16-16 16h-48c-8.8 0-16-7.2-16-16V288h-65.4c-14.3 0-21.4-17.2-11.3-27.3l105.4-105.4c6.2-6.2 16.4-6.2 22.6 0l105.4 105.4c10.1 10.1 2.9 27.3-11.3 27.3z"></path>
-            </svg>
-            Publish And View
+            {isSaving ? (
+              <>
+                <LoaderCircle size={20} className="animate-spin" />
+                Saving Changes...
+              </>
+            ) : (
+              <>
+                <Save size={20} />
+                Save Changes
+              </>
+            )}
           </button>
         </div>
       </div>
+      <ToastContainer
+        position="bottom-right"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
     </div>
   );
 };
 
 export default ProductEdit;
-
-// for example, product : {
-//   "_id":  "67cf658b903ee894b6e27f16",
-//   "name": "Oriental Steel Salad",
-//   "description": "The Horizontal mobile moratorium Hat offers reliable performance and shy design",
-//   "actualPrice": 464.39,
-//   "brand": "Hilpert - Franecki",
-//   "stock": 75,
-//   "stockUnit": "pieces",
-//   "admin": "67c05520634a0170758de266",
-//   "images": [
-//     {
-//       "publicId": "bdab1ebb-c744-4b3f-a5e2-6dab0bb10a97",
-//       "url": "https://loremflickr.com/23/884?lock=988385178348345",
-//     },
-//     {
-//       "publicId": "d77e3f66-927a-4eff-9e2f-2de677538c31",
-//       "url": "https://loremflickr.com/1955/1936?lock=6604803886033999",
-//     },
-//     {
-//       "publicId": "d55f297b-2c08-4aad-ab2b-03d8b44c56ac",
-//       "url": "https://loremflickr.com/1854/1064?lock=5002704257188413",
-//     },
-//     {
-//       "publicId": "6ea86361-593b-40ec-bb67-7d079053932d",
-//       "url": "https://loremflickr.com/3234/2514?lock=7884969944064260",
-//     },
-//     {
-//       "publicId": "c20d3306-cedf-49b0-ae97-0f2593ddf392",
-//       "url": "https://picsum.photos/seed/oAqm2j/2270/252",
-//     }
-//   ],
-//   "category": "Music",
-//   "reviews": [],
-//   "discountedPrice": 924.15,
-//   "locations": ["india","nepal","australia","america"],
-//   "status": "active",
-//   "isFeatured": false,
-//   "__v": 0,
-//   "createdAt": "2025-03-10T22:19:55.915Z",
-//   "updatedAt": "2025-03-10T22:19:55.915Z"
-// }
