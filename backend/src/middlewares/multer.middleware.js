@@ -1,7 +1,12 @@
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 
 const temp_dir = process.env.TEMP_DIR;
+
+if (!fs.existsSync(temp_dir)) {
+  fs.mkdirSync(temp_dir, { recursive: true });
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
