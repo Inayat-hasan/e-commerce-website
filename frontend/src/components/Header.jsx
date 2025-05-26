@@ -751,7 +751,7 @@ const Header = () => {
             {/* Mobile Navigation Links */}
             <nav className="flex space-x-4 overflow-x-auto scrollbar-hide">
               <Link
-                to="/collections"
+                to="/products/new-arrivals"
                 className="px-3 py-2 text-sm font-medium rounded-md hover:bg-teal-50 hover:text-teal-700 transition-colors whitespace-nowrap"
               >
                 Collections
@@ -949,7 +949,7 @@ const Header = () => {
               </Link>
 
               <Link
-                to="/collections"
+                to="/products/new-arrivals"
                 onClick={() => !isLargeScreen && dispatch(toggleSidebar())}
               >
                 <div

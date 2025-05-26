@@ -1,7 +1,0 @@
-{
-  "editor.wordWrap": "on",
-  "workbench.externalBrowser": "edge",
-  "liveServer.settings.CustomBrowser": "microsoft-edge",
-  "dart.devToolsBrowser": "default",
-  "postman.settings.dotenv-detection-notification-visibility": false
-}

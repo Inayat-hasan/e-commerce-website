@@ -241,7 +241,7 @@ const Footer = () => {
               </li>
               <li>
                 <a
-                  href="https://lushkart-admin.com"
+                  href="https://lushkart-admin.onrender.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-teal-500 to-teal-600 dark:from-teal-600 dark:to-teal-700 text-white rounded-lg font-medium hover:from-teal-600 hover:to-teal-700 dark:hover:from-teal-700 dark:hover:to-teal-800 transition-all duration-300 shadow-lg hover:shadow-xl"

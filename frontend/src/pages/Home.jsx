@@ -391,10 +391,16 @@ const Home = () => {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="px-8 py-3 bg-teal-600 text-white font-medium rounded-full hover:bg-teal-700 dark:hover:bg-teal-500 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-1 duration-300">
+                <button
+                  className="px-8 py-3 bg-teal-600 text-white font-medium rounded-full hover:bg-teal-700 dark:hover:bg-teal-500 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-1 duration-300"
+                  onClick={() => navigate("/products/new-arrivals")}
+                >
                   Shop Now
                 </button>
-                <button className="px-8 py-3 border-2 border-teal-600 dark:border-teal-400 text-teal-600 dark:text-teal-400 font-medium rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors">
+                <button
+                  className="px-8 py-3 border-2 border-teal-600 dark:border-teal-400 text-teal-600 dark:text-teal-400 font-medium rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors"
+                  onClick={() => navigate("/products/new-arrivals")}
+                >
                   Explore Collections
                 </button>
               </div>
@@ -687,7 +693,10 @@ const Home = () => {
                 Handpicked items that represent the pinnacle of quality and
                 design. Limited editions that stand out from the crowd.
               </p>
-              <button className="px-8 py-3 bg-white text-teal-600 font-medium rounded-full hover:bg-teal-50 transition-colors shadow-lg">
+              <button
+                className="px-8 py-3 bg-white text-teal-600 font-medium rounded-full hover:bg-teal-50 transition-colors shadow-lg"
+                onClick={() => navigate("/products/new-arrivals")}
+              >
                 Explore Collection
               </button>
             </div>

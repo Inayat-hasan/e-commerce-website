@@ -202,7 +202,17 @@ const Login = () => {
             </div>
 
             {/* Forgot Password */}
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center mt-4">
+              <button
+                className="text-md text-teal-700 hover:text-teal-800 bg-gray-300 py-2 px-4 rounded-lg"
+                onClick={() => {
+                  setEmail("guest@user.com");
+                  setPassword("guest1234");
+                }}
+                type="button"
+              >
+                Login as guest
+              </button>
               <button
                 type="button"
                 onClick={() => navigate("/login/forgot-password")}
